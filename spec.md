@@ -4,8 +4,8 @@
 
 ```markdown
 # AI SPEC — [Tên lát cắt] · Nhóm [XX] · Zone [X]
-Hướng: [ ] A — VLearn  [ ] B — Trợ lý Học viên  [ ] C — Làn mở
-Loại: [ ] Tối ưu tính năng có sẵn  [ ] Tính năng mới
+Hướng: [ ] A — VLearn  [ ] B — Trợ lý Học viên  [X] C — Làn mở
+Loại: [ ] Tối ưu tính năng có sẵn  [X] Tính năng mới
 
 ## §1. User & Job
 - Job executor + workflow (đính kèm worksheet JTBD / ảnh sơ đồ):
