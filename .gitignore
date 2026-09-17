@@ -2,3 +2,8 @@
 __pycache__/
 .env
 node_modules/
+
+/data/
+
+# IDE
+.idea/
