@@ -39,7 +39,7 @@ File Result  : result.md
 *Lý do:* Tóm tắt sai action item, owner hoặc deadline có thể khiến team thực hiện sai việc. Audio thực tế cũng có thể nhiễu hoặc thiếu người nói, nên AI phải thể hiện rõ mức độ chắc chắn thay vì tự điền.
 
 **7. Phân công:**
-- `Nguyen Thi Linh_02409` — evidence + khảo sát + dataset meeting/transcript
+- `Nguyen Khanh Linh_02409` — evidence + khảo sát + dataset meeting/transcript
 - `Phung Trong Chien_02430` — prompt/extraction + output schema + Discord bot + tool schema
 - `Nguyen Hong Khoa_02534` — Discord bot + Meeting Mode + backend/API 
 - `Ngo Le Thuy Tien-02614` — eval + spec + demo + user test 
