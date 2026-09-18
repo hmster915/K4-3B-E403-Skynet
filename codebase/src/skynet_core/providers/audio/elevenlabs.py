@@ -160,6 +160,8 @@ class ElevenLabsAudioProvider:
         buffer = TranscriptBuffer()
 
         try:
+            await self._wait_for_session_started(websocket)
+
             with wave.open(
                 str(wav_path),
                 "rb",
@@ -217,6 +219,38 @@ class ElevenLabsAudioProvider:
             await websocket.close()
 
         return buffer.build()
+
+    async def _wait_for_session_started(
+        self,
+        websocket: RealtimeSocket,
+    ) -> None:
+        """Wait for the provider handshake before sending audio."""
+
+        # Offline test sockets expose only async iteration and already
+        # provide scripted transcript events. Real websocket connections
+        # expose recv() and require this handshake before audio is sent.
+        recv = getattr(websocket, "recv", None)
+        if recv is None:
+            return
+
+        while True:
+            try:
+                raw_message = await recv()
+            except websockets.exceptions.ConnectionClosed as exc:
+                raise RealtimeTranscriptionError(
+                    "ElevenLabs connection closed during session startup "
+                    f"(code={exc.code}, reason={exc.reason or 'none'})"
+                ) from exc
+
+            message_type, text = self._parse_message(raw_message)
+
+            if message_type in ERROR_EVENTS:
+                raise RealtimeTranscriptionError(
+                    text or message_type
+                )
+
+            if message_type == "session_started":
+                return
 
     # Preflight: Role=validate WAV contract | Input=file path | Output=None | Decision boundary=accept ElevenLabs/decoded Discord PCM only | Failure/Test=missing/wrong format
     @staticmethod

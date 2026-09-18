@@ -1,78 +1,28 @@
-from bot.models.meeting import (
-    MeetingProcessingResult,
-)
-
-from bot.services.recording_manager import (
-    RecordingSession,
-)
-
-from bot.services.transcription_service import (
-    TranscriptionService,
-)
-
-from bot.services.summarization_service import (
-    SummarizationService,
-)
+from bot.models.meeting import MeetingProcessingResult
+from bot.services.recording_manager import RecordingSession
+from skynet_core import MeetingCore
 
 
 class MeetingProcessingService:
 
-    def __init__(
-        self,
-        transcription_service: TranscriptionService,
-        summarization_service: SummarizationService,
-    ):
-        self.transcription_service = (
-            transcription_service
-        )
-
-        self.summarization_service = (
-            summarization_service
-        )
+    def __init__(self, meeting_core: MeetingCore):
+        self.meeting_core = meeting_core
 
     async def process(
         self,
         session: RecordingSession,
     ) -> MeetingProcessingResult:
 
-        print(
-            "[MEETING] Starting transcription..."
+        wav_paths = list(session.sink.audio_files.values())
+        print(f"[MEETING] Processing {len(wav_paths)} WAV file(s) with Skynet Core...")
+
+        core_result = await self.meeting_core.process_wavs(
+            wav_paths
         )
 
-        transcript = (
-            await self.transcription_service
-            .transcribe_session(session)
-        )
+        print("[MEETING] Skynet Core processing completed.")
 
-        print(
-            f"[MEETING] Transcript completed: "
-            f"{len(transcript)} segments"
-        )
-
-        if not transcript:
-            raise RuntimeError(
-                "Không tìm thấy nội dung audio "
-                "để tạo transcript."
-            )
-
-        print(
-            "[MEETING] Starting summary..."
-        )
-
-        summary = (
-            await self.summarization_service
-            .summarize(transcript)
-        )
-
-        print(
-            "[MEETING] Summary completed."
-        )
-
-        return MeetingProcessingResult(
-            transcript=transcript,
-            summary=summary,
-            personal_notes={
-                user_id: list(notes)
-                for user_id, notes in session.personal_notes.items()
-            },
+        return MeetingProcessingResult.from_core(
+            core_result=core_result,
+            personal_notes=session.personal_notes,
         )
