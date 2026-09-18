@@ -8,12 +8,12 @@ Hướng: [ ] A — VLearn  [ ] B — Trợ lý Học viên  [X] C — Làn mở
 Loại: [ ] Tối ưu tính năng có sẵn  [X] Tính năng mới
 
 ## §1. User & Job
-- Job executor + workflow (đính kèm worksheet JTBD / ảnh sơ đồ):
-- Core JTBD (không tên sản phẩm/AI trong câu):
-- Problem statement (KHÔNG chữ AI):
-- Evidence (chuẩn A và/hoặc B — log đầy đủ trong repo):
-  - Số liệu mining / kết quả khảo sát (n = ?, % xác nhận):
-  - ≥5 quote/ví dụ nguyên văn + nguồn:
+- Job executor + workflow (đính kèm worksheet JTBD / ảnh sơ đồ): 
+- Core JTBD (không tên sản phẩm/AI trong câu): 
+- Problem statement (KHÔNG chữ AI): 
+- Evidence (chuẩn A và/hoặc B — log đầy đủ trong repo): 
+  - Số liệu mining / kết quả khảo sát (n = ?, % xác nhận): 
+  - ≥5 quote/ví dụ nguyên văn + nguồn: 
 
 ## §2. Impact & quyết định chọn
 - Bảng impact ≥3 ứng viên (bao nhiêu người · tần suất · tốn gì mỗi lần · khả thi):

@@ -16,14 +16,6 @@ from bot.services.recording_manager import (
     recording_manager,
 )
 
-from bot.services.transcription_service import (
-    TranscriptionService,
-)
-
-from bot.services.summarization_service import (
-    SummarizationService,
-)
-
 from bot.services.meeting_processing_service import (
     MeetingProcessingService,
 )
@@ -199,28 +191,7 @@ class RecordingCommands(commands.Cog):
         bot: commands.Bot
     ):
         self.bot = bot
-
-        transcription_service = (
-            TranscriptionService(
-                mode="mock"
-            )
-        )
-
-        summarization_service = (
-            SummarizationService(
-                mode="mock"
-            )
-        )
-
-        self.meeting_processor = (
-            MeetingProcessingService(
-                transcription_service=
-                    transcription_service,
-
-                summarization_service=
-                    summarization_service,
-            )
-        )
+        self.meeting_processor = MeetingProcessingService()
 
     # =====================================================
     # /record
