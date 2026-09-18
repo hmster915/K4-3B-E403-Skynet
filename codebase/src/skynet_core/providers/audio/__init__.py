@@ -11,7 +11,7 @@ from .base import (
 
 from .elevenlabs import (
     ElevenLabsAudioProvider,
-    ElevenLabsRealtimeSession,
+    ElevenLabsAudioProvider,
     RealtimeTranscriptionError,
 )
 
