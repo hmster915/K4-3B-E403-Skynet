@@ -1,9 +1,36 @@
 .DS_Store
+# Python virtual environments and build artefacts
+.venv/
+venv/
+env/
 __pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Secrets
 .env
+.env.*
+!.env.example
+
+# Local audio inputs and generated media
+*.m4a
+*.mp3
+*.wav
+*.mp4
+
+# JavaScript dependencies
 node_modules/
 
+# Local project data
 /data/
 
 # IDE
 .idea/
+.vscode/
