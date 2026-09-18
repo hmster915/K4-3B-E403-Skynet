@@ -1,4 +1,5 @@
 import asyncio
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from bot.services.recording_manager import (
 from bot.services.meeting_processing_service import (
     MeetingProcessingService,
 )
+from bot.services.meeting_memory_service import meeting_memory_service
 
 
 class MeetingSummaryView(discord.ui.View):
@@ -41,16 +43,23 @@ class MeetingSummaryView(discord.ui.View):
         return value[: limit - 1].rstrip() + "…"
 
     @classmethod
-    def _bullet_list(
+    def _readable_lines(
         cls,
-        items: list[str],
-        empty_text: str = "Không ghi nhận",
+        value: str,
+        limit: int,
+        empty_text: str,
     ) -> str:
-        if not items:
+        """Render paragraphs as one concise bullet per line."""
+        parts = [
+            part.strip()
+            for part in re.split(r"(?:\r?\n)+|(?<=[.!?])\s+", value.strip())
+            if part.strip()
+        ]
+        if not parts:
             return empty_text
         return cls._truncate(
-            "\n".join(f"• {item}" for item in items),
-            1024,
+            "\n".join(f"• {part}" for part in parts),
+            limit,
         )
 
     def _update_button_styles(self):
@@ -71,9 +80,10 @@ class MeetingSummaryView(discord.ui.View):
         report = self.result.report
         embed = discord.Embed(
             title="📋 Tóm tắt cuộc họp",
-            description=self._truncate(
-                report.overview or "Không có nội dung tóm tắt.",
+            description=self._readable_lines(
+                report.overview,
                 4096,
+                "Không có nội dung tóm tắt.",
             ),
             color=discord.Color.blurple(),
         )
@@ -86,12 +96,18 @@ class MeetingSummaryView(discord.ui.View):
 
         for section in report.sections[:20]:
             points = [
-                f"{point.content}\n  ↳ Bằng chứng: {point.evidence}"
-                for point in section.points
+                (
+                    f"**{index}. Nội dung:** {point.content}\n"
+                    f"**Bằng chứng:** {point.evidence}"
+                )
+                for index, point in enumerate(section.points, start=1)
             ]
             embed.add_field(
                 name=self._truncate(f"🧩 {section.title}", 256),
-                value=self._bullet_list(points),
+                value=self._truncate(
+                    "\n\n".join(points) or "Không ghi nhận",
+                    1024,
+                ),
                 inline=False,
             )
 
@@ -107,7 +123,13 @@ class MeetingSummaryView(discord.ui.View):
         )
         embed.add_field(
             name="📌 Ghi chú cá nhân",
-            value=self._bullet_list(notes),
+            value=self._truncate(
+                "\n".join(
+                    f"**{index}.** {note}"
+                    for index, note in enumerate(notes, start=1)
+                ) or "Không có ghi chú cá nhân.",
+                1024,
+            ),
             inline=False,
         )
         embed.set_footer(text="Chỉ bạn có thể xem nội dung này")
@@ -117,17 +139,12 @@ class MeetingSummaryView(discord.ui.View):
         transcript_text = self.result.transcript.text
         embed = discord.Embed(
             title="🗒️ Bản chép lời",
-            description=self._truncate(
-                transcript_text or "Không có nội dung transcript.",
+            description=self._readable_lines(
+                transcript_text,
                 3900,
+                "Không có nội dung transcript.",
             ),
             color=discord.Color.orange(),
-        )
-        embed.set_footer(
-            text=(
-                f"Nguồn: {self.result.transcript.source} • "
-                f"{len(transcript_text.splitlines())} dòng"
-            )
         )
         return embed
 
@@ -137,14 +154,16 @@ class MeetingSummaryView(discord.ui.View):
             return "Không ghi nhận"
 
         lines = []
-        for item in action_items:
+        for index, item in enumerate(action_items, start=1):
             owner = item.owner or "Chưa xác định"
-            line = f"• **{owner}** — {item.task}"
-            if item.deadline:
-                line += f"\n  ↳ Deadline: {item.deadline}"
-            line += f"\n  ↳ Bằng chứng: {item.evidence}"
-            lines.append(line)
-        return cls._truncate("\n".join(lines), 1024)
+            deadline = item.deadline or "Chưa xác định"
+            lines.append(
+                f"**{index}. Công việc:** {item.task}\n"
+                f"**Người phụ trách:** {owner}\n"
+                f"**Hạn chót:** {deadline}\n"
+                f"**Bằng chứng:** {item.evidence}"
+            )
+        return cls._truncate("\n\n".join(lines), 1024)
 
     @discord.ui.button(
         label="Tóm tắt",
@@ -719,10 +738,20 @@ class RecordingCommands(commands.Cog):
     ):
         view = MeetingSummaryView(result)
 
-        await text_channel.send(
+        summary_message = await text_channel.send(
             embed=view._summary_embed(),
             view=view,
         )
+
+        try:
+            await meeting_memory_service.save(
+                guild_id=text_channel.guild.id,
+                channel_id=text_channel.id,
+                message_id=summary_message.id,
+                result=result,
+            )
+        except Exception as exc:
+            print("[MEETING MEMORY ERROR]", repr(exc))
 
     @commands.Cog.listener()
     async def on_voice_state_update(
