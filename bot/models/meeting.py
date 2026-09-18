@@ -12,12 +12,14 @@ class MeetingProcessingResult:
     transcript: Transcript
     report: MeetingReport
     personal_notes: dict[int, list[str]] = field(default_factory=dict)
+    attendance: dict = field(default_factory=dict)
 
     @classmethod
     def from_core(
         cls,
         core_result: MeetingCoreResult,
         personal_notes: dict[int, list[str]],
+        attendance: dict,
     ) -> "MeetingProcessingResult":
         return cls(
             transcript=core_result.transcript,
@@ -26,6 +28,7 @@ class MeetingProcessingResult:
                 user_id: list(notes)
                 for user_id, notes in personal_notes.items()
             },
+            attendance=dict(attendance),
         )
 
     def to_dict(self) -> dict:
@@ -38,4 +41,5 @@ class MeetingProcessingResult:
                 str(user_id): list(notes)
                 for user_id, notes in self.personal_notes.items()
             },
+            "attendance": dict(self.attendance),
         }

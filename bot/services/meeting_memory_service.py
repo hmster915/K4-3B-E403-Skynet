@@ -21,6 +21,7 @@ class StoredMeeting:
     message_id: int
     transcript: dict
     report: dict
+    attendance: dict
 
 
 class MeetingMemoryService:
@@ -47,6 +48,7 @@ class MeetingMemoryService:
                 message_id,
                 payload["transcript"],
                 payload["report"],
+                payload["attendance"],
             )
 
     async def recent(
@@ -91,10 +93,23 @@ class MeetingMemoryService:
                 message_id INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
                 transcript_json TEXT NOT NULL,
-                report_json TEXT NOT NULL
+                report_json TEXT NOT NULL,
+                attendance_json TEXT NOT NULL DEFAULT '{}'
             )
             """
         )
+        columns = {
+            row[1]
+            for row in connection.execute(
+                "PRAGMA table_info(meeting_history)"
+            ).fetchall()
+        }
+        if "attendance_json" not in columns:
+            connection.execute(
+                "ALTER TABLE meeting_history "
+                "ADD COLUMN attendance_json TEXT NOT NULL DEFAULT '{}'"
+            )
+            connection.commit()
         return connection
 
     def _save_sync(
@@ -104,6 +119,7 @@ class MeetingMemoryService:
         message_id: int,
         transcript: dict,
         report: dict,
+        attendance: dict,
     ) -> None:
         with closing(self._connect()) as connection:
             with connection:
@@ -115,8 +131,9 @@ class MeetingMemoryService:
                         message_id,
                         created_at,
                         transcript_json,
-                        report_json
-                    ) VALUES (?, ?, ?, ?, ?, ?)
+                        report_json,
+                        attendance_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         guild_id,
@@ -125,6 +142,7 @@ class MeetingMemoryService:
                         datetime.now(timezone.utc).isoformat(),
                         json.dumps(transcript, ensure_ascii=False),
                         json.dumps(report, ensure_ascii=False),
+                        json.dumps(attendance, ensure_ascii=False),
                     ),
                 )
                 connection.execute(
@@ -159,7 +177,7 @@ class MeetingMemoryService:
             rows = connection.execute(
                 """
                 SELECT created_at, channel_id, message_id,
-                       transcript_json, report_json
+                       transcript_json, report_json, attendance_json
                 FROM meeting_history
                 WHERE guild_id = ? AND channel_id = ?
                 ORDER BY id DESC
@@ -179,7 +197,7 @@ class MeetingMemoryService:
             rows = connection.execute(
                 """
                 SELECT created_at, channel_id, message_id,
-                       transcript_json, report_json
+                       transcript_json, report_json, attendance_json
                 FROM meeting_history
                 WHERE guild_id = ?
                 ORDER BY id DESC
@@ -198,6 +216,7 @@ class MeetingMemoryService:
             message_id,
             transcript_json,
             report_json,
+            attendance_json,
         ) in rows:
             try:
                 meetings.append(
@@ -207,6 +226,7 @@ class MeetingMemoryService:
                         message_id=message_id,
                         transcript=json.loads(transcript_json),
                         report=json.loads(report_json),
+                        attendance=json.loads(attendance_json),
                     )
                 )
             except (json.JSONDecodeError, TypeError):

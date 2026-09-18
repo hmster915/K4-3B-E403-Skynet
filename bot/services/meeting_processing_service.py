@@ -25,4 +25,5 @@ class MeetingProcessingService:
         return MeetingProcessingResult.from_core(
             core_result=core_result,
             personal_notes=session.personal_notes,
+            attendance=session.attendance_snapshot(),
         )

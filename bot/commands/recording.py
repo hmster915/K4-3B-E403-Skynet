@@ -88,6 +88,27 @@ class MeetingSummaryView(discord.ui.View):
             color=discord.Color.blurple(),
         )
 
+        attendance = self.result.attendance
+        if attendance:
+            participant_names = [
+                participant.get("name", "Không rõ")
+                for participant in attendance.get("participants", [])
+            ]
+            attendance_lines = [
+                f"**Tham dự duy nhất:** {attendance.get('unique_count', 0)}",
+                f"**Có mặt lúc bắt đầu:** {attendance.get('initial_count', 0)}",
+                f"**Cao nhất cùng lúc:** {attendance.get('peak_count', 0)}",
+            ]
+            if participant_names:
+                attendance_lines.append(
+                    "**Thành viên:** " + ", ".join(participant_names)
+                )
+            embed.add_field(
+                name="👥 Người tham dự",
+                value=self._truncate("\n".join(attendance_lines), 1024),
+                inline=False,
+            )
+
         embed.add_field(
             name="✅ Action Items",
             value=self._action_items_text(report.action_items),
@@ -329,6 +350,13 @@ class RecordingCommands(commands.Cog):
 
             return
 
+        started_at = datetime.now(timezone.utc)
+        initial_humans = [
+            member for member in voice_channel.members if not member.bot
+        ]
+        initial_participant_ids = {
+            member.id for member in initial_humans
+        }
         session = RecordingSession(
             guild_id=guild.id,
             voice_channel_id=voice_channel.id,
@@ -336,14 +364,27 @@ class RecordingCommands(commands.Cog):
 
             started_by=interaction.user.id,
 
-            started_at=datetime.now(
-                timezone.utc
-            ),
+            started_at=started_at,
 
             output_dir=output_dir,
 
             voice_client=voice_client,
-            sink=sink
+            sink=sink,
+            participant_names={
+                member.id: member.display_name
+                for member in initial_humans
+            },
+            initial_participant_ids=initial_participant_ids,
+            peak_participant_count=len(initial_humans),
+            attendance_events=[
+                {
+                    "timestamp": started_at.isoformat(),
+                    "event": "session_started",
+                    "active_count": len(initial_humans),
+                    "user_id": None,
+                    "name": None,
+                }
+            ],
         )
 
         recording_manager.add(
@@ -522,14 +563,33 @@ class RecordingCommands(commands.Cog):
             guild_id
         )
 
-        if session is None:
-            return
-
-        # Tránh /end-record + auto leave chạy cùng lúc
-        if session.ending:
+        if session is None or session.ending:
             return
 
         session.ending = True
+
+        ended_at = datetime.now(timezone.utc)
+        session.ended_at = ended_at
+        guild = self.bot.get_guild(guild_id)
+        voice_channel = (
+            guild.get_channel(session.voice_channel_id)
+            if guild is not None
+            else None
+        )
+        active_humans = (
+            [member for member in voice_channel.members if not member.bot]
+            if voice_channel is not None
+            else []
+        )
+        for active_member in active_humans:
+            session.participant_names[
+                active_member.id
+            ] = active_member.display_name
+        session.record_attendance_event(
+            event="session_ended",
+            active_count=len(active_humans),
+            occurred_at=ended_at,
+        )
 
         voice_client = session.voice_client
 
@@ -612,6 +672,12 @@ class RecordingCommands(commands.Cog):
             name="Speakers",
             value=str(len(files)),
             inline=True
+        )
+
+        embed.add_field(
+            name="Unique attendees",
+            value=str(len(session.participant_names)),
+            inline=True,
         )
 
         embed.add_field(
@@ -770,7 +836,7 @@ class RecordingCommands(commands.Cog):
             guild.id
         )
 
-        if session is None:
+        if session is None or session.ending:
             return
 
         voice_channel_id = (
@@ -796,6 +862,27 @@ class RecordingCommands(commands.Cog):
             and after_id != voice_channel_id
         ):
             return
+
+        voice_channel = guild.get_channel(voice_channel_id)
+        humans_now = (
+            [voice_member for voice_member in voice_channel.members if not voice_member.bot]
+            if voice_channel is not None
+            else []
+        )
+        if after_id == voice_channel_id and before_id != voice_channel_id:
+            session.record_attendance_event(
+                event="joined",
+                active_count=len(humans_now),
+                member_id=member.id,
+                member_name=member.display_name,
+            )
+        elif before_id == voice_channel_id and after_id != voice_channel_id:
+            session.record_attendance_event(
+                event="left",
+                active_count=len(humans_now),
+                member_id=member.id,
+                member_name=member.display_name,
+            )
 
         # Grace period cho reconnect
         await asyncio.sleep(3)
