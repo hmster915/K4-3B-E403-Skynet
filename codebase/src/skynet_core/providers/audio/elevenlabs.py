@@ -1,7 +1,8 @@
 """
 __init__()              --> cấu hình ElevenLabs
 transcribe_wav()        --> WAV -> Transcript
-_validate_wav()         --> kiểm tra PCM16 mono 16k
+_validate_wav()         --> kiểm tra PCM16 WAV hỗ trợ
+_iter_pcm16_chunks()    --> chuẩn hóa Discord WAV + chia chunk
 _build_websocket_url()  --> tạo realtime URL
 _send_chunk()           --> gửi audio chunk
 _commit()               --> chốt audio segment
@@ -12,12 +13,15 @@ _parse_message()        --> đọc provider response
 import base64
 import json
 import os
+import sys
 import wave
 
+from array import array
 from collections.abc import (
     AsyncIterator,
     Awaitable,
     Callable,
+    Iterator,
 )
 
 from pathlib import Path
@@ -42,6 +46,15 @@ SAMPLE_RATE = 16000
 SAMPLE_WIDTH = 2
 CHANNELS = 1
 
+# Discord voice dùng Opus 48 kHz stereo. Bot/voice adapter cần
+# giải mã Opus thành WAV PCM16 trước khi gọi transcribe_wav().
+DISCORD_SAMPLE_RATE = 48000
+SUPPORTED_CHANNELS = {CHANNELS, 2}
+SUPPORTED_SAMPLE_RATES = {
+    SAMPLE_RATE,
+    DISCORD_SAMPLE_RATE,
+}
+
 # gửi 0.5 giây audio mỗi lần
 CHUNK_FRAMES = 8000
 
@@ -58,6 +71,12 @@ ERROR_EVENTS = {
     "input_error",
     "invalid_request",
     "resource_exhausted",
+    "commit_throttled",
+    "unaccepted_terms",
+    "queue_overflow",
+    "session_time_limit_exceeded",
+    "chunk_size_exceeded",
+    "insufficient_audio_activity",
 }
 
 
@@ -123,7 +142,7 @@ class ElevenLabsAudioProvider:
             or websockets.connect
         )
 
-    # Preflight: Role=transcribe WAV meeting | Input=PCM16 mono 16k WAV | Output=Transcript | Decision boundary=STT only, no LLM | Failure/Test=invalid WAV/network/provider failure
+    # Preflight: Role=transcribe WAV meeting | Input=PCM16 WAV (mono/stereo, 16k/48k) | Output=Transcript | Decision boundary=normalize + STT only, no LLM | Failure/Test=invalid WAV/network/provider failure
     async def transcribe_wav(
         self,
         wav_path: Path,
@@ -148,13 +167,11 @@ class ElevenLabsAudioProvider:
 
                 chunks_since_commit = 0
 
-                while True:
-                    chunk = audio.readframes(
-                        CHUNK_FRAMES
+                for chunk in (
+                    self._iter_pcm16_chunks(
+                        audio
                     )
-
-                    if not chunk:
-                        break
+                ):
 
                     await self._send_chunk(
                         websocket,
@@ -201,7 +218,7 @@ class ElevenLabsAudioProvider:
 
         return buffer.build()
 
-    # Preflight: Role=validate WAV contract | Input=file path | Output=None | Decision boundary=format validation only | Failure/Test=missing/wrong format
+    # Preflight: Role=validate WAV contract | Input=file path | Output=None | Decision boundary=accept ElevenLabs/decoded Discord PCM only | Failure/Test=missing/wrong format
     @staticmethod
     def _validate_wav(
         wav_path: Path,
@@ -220,10 +237,10 @@ class ElevenLabsAudioProvider:
 
                 if (
                     audio.getnchannels()
-                    != CHANNELS
+                    not in SUPPORTED_CHANNELS
                 ):
                     raise ValueError(
-                        "WAV must be mono"
+                        "WAV must be mono or stereo"
                     )
 
                 if (
@@ -236,10 +253,11 @@ class ElevenLabsAudioProvider:
 
                 if (
                     audio.getframerate()
-                    != SAMPLE_RATE
+                    not in SUPPORTED_SAMPLE_RATES
                 ):
                     raise ValueError(
-                        "WAV must be 16000 Hz"
+                        "WAV sample rate must be "
+                        "16000 or 48000 Hz"
                     )
 
                 if (
@@ -250,10 +268,108 @@ class ElevenLabsAudioProvider:
                         "WAV must be uncompressed PCM"
                     )
 
-        except wave.Error as exc:
+                if audio.getnframes() <= 0:
+                    raise ValueError(
+                        "WAV contains no audio frames"
+                    )
+
+        except (wave.Error, EOFError) as exc:
             raise ValueError(
-                "Invalid WAV file"
+                "Invalid WAV file; Discord Opus "
+                "must be decoded to PCM16 WAV first"
             ) from exc
+
+    # Preflight: Role=normalize/chunk WAV | Input=open PCM16 WAV | Output=mono 16k PCM chunks | Decision boundary=audio shape only | Failure/Test=Discord stereo 48k conversion
+    @classmethod
+    def _iter_pcm16_chunks(
+        cls,
+        audio: wave.Wave_read,
+    ) -> Iterator[bytes]:
+
+        source_channels = (
+            audio.getnchannels()
+        )
+        source_sample_rate = (
+            audio.getframerate()
+        )
+
+        source_frames_per_chunk = (
+            CHUNK_FRAMES
+            * source_sample_rate
+            // SAMPLE_RATE
+        )
+
+        while True:
+            source_chunk = audio.readframes(
+                source_frames_per_chunk
+            )
+
+            if not source_chunk:
+                return
+
+            yield cls._normalize_pcm16(
+                source_chunk,
+                channels=source_channels,
+                sample_rate=source_sample_rate,
+            )
+
+    # Preflight: Role=convert decoded Discord PCM | Input=PCM16 mono/stereo 16k/48k bytes | Output=PCM16 mono 16k bytes | Decision boundary=no encoding/container work | Failure/Test=sample count/value conversion
+    @staticmethod
+    def _normalize_pcm16(
+        pcm: bytes,
+        *,
+        channels: int,
+        sample_rate: int,
+    ) -> bytes:
+
+        samples = array("h")
+        samples.frombytes(pcm)
+
+        if sys.byteorder != "little":
+            samples.byteswap()
+
+        if channels == 2:
+            mono_samples = array(
+                "h",
+                (
+                    (
+                        int(samples[index])
+                        + int(samples[index + 1])
+                    )
+                    // 2
+                    for index in range(
+                        0,
+                        len(samples),
+                        2,
+                    )
+                ),
+            )
+        else:
+            mono_samples = samples
+
+        if sample_rate == DISCORD_SAMPLE_RATE:
+            resampled = array("h")
+
+            for index in range(
+                0,
+                len(mono_samples),
+                3,
+            ):
+                window = mono_samples[
+                    index:index + 3
+                ]
+
+                resampled.append(
+                    sum(window)
+                    // len(window)
+                )
+
+            mono_samples = resampled
+
+        if sys.byteorder != "little":
+            mono_samples.byteswap()
+
+        return mono_samples.tobytes()
 
     # Preflight: Role=build ElevenLabs endpoint | Input=base URL | Output=WebSocket URL | Decision boundary=URL only | Failure/Test=http/ws base URL
     def _build_websocket_url(

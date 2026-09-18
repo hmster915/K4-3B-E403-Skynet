@@ -1,9 +1,8 @@
 """
-_validate_wav()          --> kiểm tra WAV đầu vào
-_stream_wav_realtime()   --> chia WAV thành chunk và gửi realtime
-_collect_transcript()    --> nhận committed transcript
-_run_realtime_test()     --> chạy full integration test
-test_realtime_stt_wav()  --> pytest entrypoint
+_get_test_wav()          --> lấy WAV test
+_print_wav_info()        --> in format WAV
+_run_realtime_test()     --> gọi STT provider
+test_realtime_stt_wav()  --> integration test
 """
 
 import asyncio
@@ -12,177 +11,64 @@ import wave
 
 from pathlib import Path
 
-from skynet_core.models.transcript import (
-    RealtimeTranscriptEventType,
-)
+from dotenv import load_dotenv
 
-from skynet_core.providers.audio.elevenlabs import (
+from skynet_core.models.transcript import Transcript
+from skynet_core.providers.audio import (
     ElevenLabsAudioProvider,
-    ElevenLabsRealtimeSession,
 )
 
 
-CHUNK_SECONDS = 0.5
-FINAL_SILENCE_SECONDS = 2.0
+CODEBASE_ROOT = Path(__file__).resolve().parents[1]
 
-TEST_WAV_PATH = Path(
-    os.getenv(
-        "TEST_WAV_PATH",
-        "tests/973234901300158564.wav",
+load_dotenv(
+    CODEBASE_ROOT / ".env"
+)
+
+DEFAULT_TEST_WAV = (
+    Path(__file__).resolve().parent
+    / "973234901300158564.wav"
+)
+
+
+# Preflight: Role=resolve WAV test | Input=env/default path | Output=existing WAV path | Decision boundary=path only | Failure/Test=file missing
+def _get_test_wav() -> Path:
+    custom_path = os.getenv(
+        "TEST_WAV_PATH"
     )
-)
 
-
-# Preflight: Role=validate test WAV | Input=WAV path | Output=audio format | Decision boundary=validation only | Failure/Test=missing/wrong WAV format
-def _validate_wav(
-    wav_path: Path,
-) -> tuple[int, int, int]:
+    wav_path = (
+        Path(custom_path)
+        if custom_path
+        else DEFAULT_TEST_WAV
+    )
 
     if not wav_path.is_file():
         raise FileNotFoundError(
-            f"WAV file not found: {wav_path}"
+            f"WAV test file not found: {wav_path}"
         )
 
-    with wave.open(
-        str(wav_path),
-        "rb",
-    ) as audio:
-
-        channels = audio.getnchannels()
-        sample_width = audio.getsampwidth()
-        sample_rate = audio.getframerate()
-
-    if channels != 1:
-        raise ValueError(
-            "Test WAV must be mono"
-        )
-
-    if sample_width != 2:
-        raise ValueError(
-            "Test WAV must be PCM 16-bit"
-        )
-
-    if sample_rate != 16000:
-        raise ValueError(
-            "Test WAV must be 16000 Hz"
-        )
-
-    return (
-        channels,
-        sample_width,
-        sample_rate,
-    )
+    return wav_path
 
 
-# Preflight: Role=simulate realtime audio | Input=WAV + STT session | Output=None | Decision boundary=audio transport only | Failure/Test=invalid file/provider failure
-async def _stream_wav_realtime(
-    session: ElevenLabsRealtimeSession,
+# Preflight: Role=show WAV metadata | Input=WAV path | Output=None | Decision boundary=debug info only | Failure/Test=invalid WAV
+def _print_wav_info(
     wav_path: Path,
 ) -> None:
-
-    (
-        channels,
-        sample_width,
-        sample_rate,
-    ) = _validate_wav(
-        wav_path
-    )
-
-    frames_per_chunk = int(
-        sample_rate * CHUNK_SECONDS
-    )
-
     with wave.open(
         str(wav_path),
         "rb",
     ) as audio:
-
-        while True:
-            chunk = audio.readframes(
-                frames_per_chunk
-            )
-
-            if not chunk:
-                break
-
-            await session.send_chunk(
-                chunk
-            )
-
-            # Giả lập audio đến theo thời gian thật.
-            await asyncio.sleep(
-                CHUNK_SECONDS
-            )
-
-    # Gửi silence cuối để VAD nhận ra người nói đã dừng.
-    silence_chunk = (
-        b"\x00"
-        * frames_per_chunk
-        * channels
-        * sample_width
-    )
-
-    silence_chunks = int(
-        FINAL_SILENCE_SECONDS
-        / CHUNK_SECONDS
-    )
-
-    for _ in range(
-        silence_chunks
-    ):
-        await session.send_chunk(
-            silence_chunk
-        )
-
-        await asyncio.sleep(
-            CHUNK_SECONDS
-        )
-
-
-# Preflight: Role=collect confirmed STT | Input=realtime events | Output=committed text list | Decision boundary=ignore partial/final; no LLM | Failure/Test=provider stream failure
-async def _collect_transcript(
-    session: ElevenLabsRealtimeSession,
-    parts: list[str],
-) -> None:
-
-    committed_types = {
-        RealtimeTranscriptEventType.COMMITTED,
-        RealtimeTranscriptEventType.COMMITTED_WITH_TIMESTAMPS,
-    }
-
-    async for event in session.events():
-
-        if (
-            event.event_type
-            not in committed_types
-        ):
-            continue
-
-        text = (
-            event.text or ""
-        ).strip()
-
-        if not text:
-            continue
-
-        # include_timestamps có thể tạo event
-        # chứa cùng text ngay sau committed event.
-        if (
-            parts
-            and parts[-1] == text
-        ):
-            continue
-
-        parts.append(text)
-
         print(
-            f"[COMMITTED] {text}"
+            "\nWAV INPUT"
+            f"\nchannels    = {audio.getnchannels()}"
+            f"\nsample_rate = {audio.getframerate()}"
+            f"\nsample_width= {audio.getsampwidth() * 8} bit"
         )
 
 
-# Preflight: Role=run realtime STT integration | Input=WAV path/API key | Output=full transcript | Decision boundary=STT only | Failure/Test=no transcript/network/auth error
-async def _run_realtime_test() -> str:
-
+# Preflight: Role=run realtime STT | Input=WAV + API key | Output=Transcript | Decision boundary=STT only, no LLM | Failure/Test=auth/network/provider error
+async def _run_realtime_test() -> Transcript:
     api_key = (
         os.getenv(
             "ELEVENLABS_API_KEY"
@@ -192,54 +78,26 @@ async def _run_realtime_test() -> str:
 
     if not api_key:
         raise ValueError(
-            "ELEVENLABS_API_KEY is required"
+            "ELEVENLABS_API_KEY not found in codebase/.env"
         )
+
+    wav_path = _get_test_wav()
+
+    _print_wav_info(
+        wav_path
+    )
 
     provider = ElevenLabsAudioProvider(
-        api_key=api_key
+        api_key=api_key,
     )
 
-    session = await provider.connect()
-
-    parts: list[str] = []
-
-    collector_task = (
-        asyncio.create_task(
-            _collect_transcript(
-                session,
-                parts,
-            )
-        )
+    return await provider.transcribe_wav(
+        wav_path
     )
 
-    try:
-        await _stream_wav_realtime(
-            session,
-            TEST_WAV_PATH,
-        )
 
-        # Chờ ElevenLabs trả nốt event cuối.
-        await asyncio.sleep(2)
-
-    finally:
-        await session.close()
-
-        await asyncio.wait_for(
-            collector_task,
-            timeout=5,
-        )
-
-    if not parts:
-        raise AssertionError(
-            "No committed transcript received"
-        )
-
-    return "\n".join(parts)
-
-
-# Preflight: Role=pytest integration entry | Input=test WAV | Output=assert transcript | Decision boundary=no LLM | Failure/Test=empty STT result
+# Preflight: Role=pytest integration entry | Input=test WAV | Output=non-empty transcript | Decision boundary=no LLM | Failure/Test=empty transcript
 def test_realtime_stt_wav() -> None:
-
     transcript = asyncio.run(
         _run_realtime_test()
     )
@@ -251,6 +109,8 @@ def test_realtime_stt_wav() -> None:
         "=============================="
     )
 
-    print(transcript)
+    print(
+        transcript.text
+    )
 
-    assert transcript.strip()
+    assert transcript.text.strip()

@@ -1,25 +1,20 @@
 """
-RealtimeAudioProvider  --> contract realtime provider
-RealtimeAudioSession   --> contract realtime session
-ElevenLabsAudioProvider --> ElevenLabs realtime implementation
+AudioProvider             --> STT provider contract
+ElevenLabsAudioProvider   --> ElevenLabs realtime STT
+TranscriptBuffer          --> gom transcript
 """
 
-from .base import (
-    RealtimeAudioProvider,
-    RealtimeAudioSession,
-)
-
+from .base import AudioProvider
+from .buffer import TranscriptBuffer
 from .elevenlabs import (
     ElevenLabsAudioProvider,
-    ElevenLabsRealtimeSession,
     RealtimeTranscriptionError,
 )
 
 
 __all__ = [
-    "RealtimeAudioProvider",
-    "RealtimeAudioSession",
+    "AudioProvider",
     "ElevenLabsAudioProvider",
-    "ElevenLabsRealtimeSession",
+    "TranscriptBuffer",
     "RealtimeTranscriptionError",
 ]
