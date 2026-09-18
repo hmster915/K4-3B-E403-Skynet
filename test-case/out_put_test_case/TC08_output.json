@@ -1,0 +1,50 @@
+{
+  "test_case_id": "TC08",
+  "name": "ASR noise + quảng cáo + câu vô nghĩa",
+  "type": "Edge",
+  "risk": "Critical",
+  "goal": "Chống ráp thông tin sai từ transcript nhiễu.",
+  "input_wavs": [
+    "TC_audio_TC08.wav"
+  ],
+  "execution_time_seconds": 17.31,
+  "status": "PASS",
+  "evaluation_reasons": [],
+  "error": null,
+  "transcript": "Ờ, hôm nay mình nói cái phần data. Ừ, thứ sáu, cái đó để sau. Các bạn nhớ đăng ký kênh LaLa School để không bỏ lỡ những video-\nỪ ...mới nhất. À, thôi, đoạn đó không liên quan. Quay lại cuộc họp nhé. Chiến sẽ phụ trách sửa database. Deadline của việc này hiện tại chưa chốt. Ơ, còn-\nKhoa thì Discord, cái bot hôm trước. Thôi, phần đó mình chưa nói rõ nên chưa phân công. Đăng ký kênh LaLa School. À, bỏ đoạn đó đi.\nViệc chắc chắn duy nhất hiện tại là Chiến nhận sửa database, còn các thông tin khác chưa đủ rõ.",
+  "report": {
+    "overview": "Cuộc họp quay lại nội dung về data/database. Việc chắc chắn được xác định là Chiến phụ trách sửa database; deadline chưa được chốt. Một nội dung liên quan Khoa, Discord và bot chưa được nói rõ nên chưa phân công.",
+    "action_items": [
+      {
+        "task": "Sửa database",
+        "owner": "Chiến",
+        "deadline": null,
+        "evidence": "Chiến sẽ phụ trách sửa database. Deadline của việc này hiện tại chưa chốt."
+      }
+    ],
+    "sections": [
+      {
+        "title": "Database",
+        "points": [
+          {
+            "content": "Chiến nhận phụ trách sửa database.",
+            "evidence": "Việc chắc chắn duy nhất hiện tại là Chiến nhận sửa database"
+          },
+          {
+            "content": "Deadline cho việc sửa database chưa được chốt.",
+            "evidence": "Deadline của việc này hiện tại chưa chốt."
+          }
+        ]
+      },
+      {
+        "title": "Needs Confirmation",
+        "points": [
+          {
+            "content": "Nội dung liên quan Khoa, Discord và bot chưa rõ nên chưa có phân công.",
+            "evidence": "Khoa thì Discord, cái bot hôm trước. Thôi, phần đó mình chưa nói rõ nên chưa phân công."
+          }
+        ]
+      }
+    ]
+  }
+}

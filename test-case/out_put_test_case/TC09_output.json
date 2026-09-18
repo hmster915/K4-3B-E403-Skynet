@@ -1,0 +1,61 @@
+{
+  "test_case_id": "TC09",
+  "name": "Deadline bị sửa trong cuộc họp",
+  "type": "Edge",
+  "risk": "High",
+  "goal": "Hiểu thông tin cập nhật sau cùng.",
+  "input_wavs": [
+    "TC_audio_TC09.wav"
+  ],
+  "execution_time_seconds": 17.18,
+  "status": "PASS",
+  "evaluation_reasons": [],
+  "error": null,
+  "transcript": "Ban đầu mình định để Chiến hoàn thành backend vào thứ Năm, nhưng lịch demo vừa thay đổi nên thứ Năm không cần nữa. Chiến nói nếu vậy thì có thể làm tới thứ Sáu.\nNam đồng ý. Vậy deadline mới của backend là thứ Sáu nhé. Còn Khoa ban đầu dự kiến xong bot ngày mai, nhưng Khoa báo cần thêm thời gian.\nSau khi trao đổi thì team thống nhất bot cũng hoàn thành thứ Sáu. Linh vẫn giữ deadline cũ là 10:00 sáng mai cho bộ test case. Tóm lại, những deadline-\nỪ ...trước đó đã thay đổi thì dùng thông tin vừa chốt cuối cùng.",
+  "report": {
+    "overview": "Cuộc họp chốt lại các deadline mới và giữ nguyên một số deadline hiện có cho backend, bot và bộ test case.",
+    "action_items": [
+      {
+        "task": "Hoàn thành backend",
+        "owner": "Chiến",
+        "deadline": "thứ Sáu",
+        "evidence": "Vậy deadline mới của backend là thứ Sáu nhé."
+      },
+      {
+        "task": "Hoàn thành bot",
+        "owner": "Khoa",
+        "deadline": "thứ Sáu",
+        "evidence": "team thống nhất bot cũng hoàn thành thứ Sáu."
+      },
+      {
+        "task": "Hoàn thành bộ test case",
+        "owner": "Linh",
+        "deadline": "10:00 sáng mai",
+        "evidence": "Linh vẫn giữ deadline cũ là 10:00 sáng mai cho bộ test case."
+      }
+    ],
+    "sections": [
+      {
+        "title": "Thay đổi deadline",
+        "points": [
+          {
+            "content": "Deadline backend ban đầu dự kiến là thứ Năm nhưng không còn cần vào thứ Năm do lịch demo thay đổi.",
+            "evidence": "Ban đầu mình định để Chiến hoàn thành backend vào thứ Năm, nhưng lịch demo vừa thay đổi nên thứ Năm không cần nữa."
+          },
+          {
+            "content": "Chiến có thể làm backend tới thứ Sáu và Nam đồng ý.",
+            "evidence": "Chiến nói nếu vậy thì có thể làm tới thứ Sáu. Nam đồng ý."
+          },
+          {
+            "content": "Khoa ban đầu dự kiến xong bot ngày mai nhưng cần thêm thời gian.",
+            "evidence": "Còn Khoa ban đầu dự kiến xong bot ngày mai, nhưng Khoa báo cần thêm thời gian."
+          },
+          {
+            "content": "Các deadline đã thay đổi sẽ dùng thông tin được chốt cuối cùng.",
+            "evidence": "trước đó đã thay đổi thì dùng thông tin vừa chốt cuối cùng."
+          }
+        ]
+      }
+    ]
+  }
+}

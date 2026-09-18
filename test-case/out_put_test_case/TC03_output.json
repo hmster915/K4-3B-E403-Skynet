@@ -1,0 +1,83 @@
+{
+  "test_case_id": "TC03",
+  "name": "Có owner nhưng chưa deadline",
+  "type": "Negative",
+  "risk": "High",
+  "goal": "Không hallucinate deadline.",
+  "input_wavs": [
+    "TC_audio_TC03.wav"
+  ],
+  "execution_time_seconds": 18.83,
+  "status": "PASS",
+  "evaluation_reasons": [],
+  "error": null,
+  "transcript": "Phần ghi score hiện tại đã ghi âm được rồi, nhưng sau khi ghi xong chưa gọi call tự động. Khoa nhận giúp phần này nhé. Cụ thể là sau slash and record.\nBot lấy dàn sách file wave, rồi truyền vào meeting core process underscore wave ES. Khi core trả kết quả thì render phần overview.\nAction item và các section lên Discord. Khoa bảo là làm được, nhưng hiện tại chưa biết chính xác khi nào xong vì còn phải sửa một lỗi ở voice.\nConnection. Vậy cứ xác nhận. Khoa nhận phần tích hợp Discord trước, còn deadline thì chưa chốt. Khi nào kiểm tra lỗi xong mình cập nhật sau.",
+  "report": {
+    "overview": "Cuộc họp thảo luận về việc sau khi ghi âm phần score cần gọi tự động, xử lý file wave qua meeting core process và render kết quả overview, action item, section lên Discord. Khoa nhận phần tích hợp Discord trước nhưng chưa có deadline vì còn lỗi voice connection.",
+    "action_items": [
+      {
+        "task": "Xử lý việc gọi tự động sau khi ghi âm, cụ thể sau slash and record.",
+        "owner": "Khoa",
+        "deadline": null,
+        "evidence": "sau khi ghi xong chưa gọi call tự động. Khoa nhận giúp phần này nhé. Cụ thể là sau slash and record."
+      },
+      {
+        "task": "Tích hợp Discord để đưa overview, action item và các section lên Discord.",
+        "owner": "Khoa",
+        "deadline": null,
+        "evidence": "Khoa nhận phần tích hợp Discord trước, còn deadline thì chưa chốt."
+      },
+      {
+        "task": "Cập nhật deadline sau khi kiểm tra xong lỗi voice connection.",
+        "owner": null,
+        "deadline": null,
+        "evidence": "Khi nào kiểm tra lỗi xong mình cập nhật sau."
+      }
+    ],
+    "sections": [
+      {
+        "title": "Luồng xử lý sau ghi âm",
+        "points": [
+          {
+            "content": "Phần ghi score hiện tại đã ghi âm được, nhưng chưa gọi tự động sau khi ghi xong.",
+            "evidence": "Phần ghi score hiện tại đã ghi âm được rồi, nhưng sau khi ghi xong chưa gọi call tự động."
+          },
+          {
+            "content": "Bot sẽ lấy file wave và truyền vào meeting core process underscore wave ES.",
+            "evidence": "Bot lấy dàn sách file wave, rồi truyền vào meeting core process underscore wave ES."
+          },
+          {
+            "content": "Khi core trả kết quả thì render overview.",
+            "evidence": "Khi core trả kết quả thì render phần overview."
+          }
+        ]
+      },
+      {
+        "title": "Tích hợp Discord",
+        "points": [
+          {
+            "content": "Overview, action item và các section sẽ được đưa lên Discord.",
+            "evidence": "Action item và các section lên Discord."
+          },
+          {
+            "content": "Khoa nói phần này làm được.",
+            "evidence": "Khoa bảo là làm được"
+          }
+        ]
+      },
+      {
+        "title": "Needs Confirmation",
+        "points": [
+          {
+            "content": "Chưa xác định thời điểm hoàn thành vì còn phải sửa lỗi voice connection.",
+            "evidence": "hiện tại chưa biết chính xác khi nào xong vì còn phải sửa một lỗi ở voice. Connection."
+          },
+          {
+            "content": "Deadline cho phần tích hợp Discord chưa được chốt.",
+            "evidence": "còn deadline thì chưa chốt."
+          }
+        ]
+      }
+    ]
+  }
+}

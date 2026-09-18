@@ -1,0 +1,62 @@
+{
+  "test_case_id": "TC07",
+  "name": "Nhiều task + câu nói lặp",
+  "type": "Positive/Edge",
+  "risk": "High",
+  "goal": "Không duplicate action item.",
+  "input_wavs": [
+    "TC_audio_TC07.wav"
+  ],
+  "execution_time_seconds": 17.28,
+  "status": "PASS",
+  "evaluation_reasons": [],
+  "error": null,
+  "transcript": "Mình tổng hợp lại nha. Chiến sửa system prompt để không tự đoán owner và deadline, việc này Chiến nhận rồi. Khoa sửa phần Discord render report...\nLinh hoàn thiện test case. Nhắc lại lần nữa để mọi người nhớ: Chiến là system prompt, Khoa là Discord, Linh là test case. Chiến cố hoàn thành trong t-\nTối nay, Khoa cũng cố xong trong tối nay, Linh thì trước 10 giờ sáng mai gửi bản test. À, mình nhắc lại lần cuối nhé. Chiến sửa prompt, Khoa sửa dis-\n...cord, Linh làm test case. Đừng tạo ba bản task giống nhau chỉ vì mình nhắc lại nhiều lần.",
+  "report": {
+    "overview": "Cuộc họp tổng hợp các việc cần làm: Chiến sửa system prompt, Khoa sửa phần Discord render report, Linh hoàn thiện test case; đồng thời nhắc không tạo trùng task do nội dung được lặp lại nhiều lần.",
+    "action_items": [
+      {
+        "task": "Sửa system prompt để không tự đoán owner và deadline",
+        "owner": "Chiến",
+        "deadline": null,
+        "evidence": "Chiến sửa system prompt để không tự đoán owner và deadline, việc này Chiến nhận rồi."
+      },
+      {
+        "task": "Sửa phần Discord render report",
+        "owner": "Khoa",
+        "deadline": "tối nay",
+        "evidence": "Khoa sửa phần Discord render report..."
+      },
+      {
+        "task": "Hoàn thiện test case",
+        "owner": "Linh",
+        "deadline": "trước 10 giờ sáng mai",
+        "evidence": "Linh hoàn thiện test case."
+      }
+    ],
+    "sections": [
+      {
+        "title": "Phân công công việc",
+        "points": [
+          {
+            "content": "Ba đầu việc chính được nhắc lại: Chiến phụ trách system prompt, Khoa phụ trách Discord, Linh phụ trách test case.",
+            "evidence": "Nhắc lại lần nữa để mọi người nhớ: Chiến là system prompt, Khoa là Discord, Linh là test case."
+          },
+          {
+            "content": "Người nói yêu cầu không tạo ba bản task giống nhau vì nội dung được nhắc lại nhiều lần.",
+            "evidence": "Đừng tạo ba bản task giống nhau chỉ vì mình nhắc lại nhiều lần."
+          }
+        ]
+      },
+      {
+        "title": "Needs Confirmation",
+        "points": [
+          {
+            "content": "Deadline của Chiến bị nói dở nên chưa xác nhận được.",
+            "evidence": "Chiến cố hoàn thành trong t-"
+          }
+        ]
+      }
+    ]
+  }
+}

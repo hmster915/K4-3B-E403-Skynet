@@ -1,0 +1,71 @@
+{
+  "test_case_id": "TC02",
+  "name": "Có task nhưng thiếu owner",
+  "type": "Negative",
+  "risk": "High",
+  "goal": "AI không tự đoán người làm.",
+  "input_wavs": [
+    "TC_audio_TC02.wav"
+  ],
+  "execution_time_seconds": 17.7,
+  "status": "PASS",
+  "evaluation_reasons": [],
+  "error": null,
+  "transcript": "Về phần demo ngày mai thì mình thấy hiện tại còn thiếu một việc khá quan trọng. Sau khi người dùng kết thúc cuộc họp, hệ thống cần lưu lại biên bản và cho phép mở lại để xem.\nPhần này chắc chắn phải hoàn thành trước buổi demo. Hiện tại mình chưa phân công cho ai cả, lát nữa mọi người xem ai còn thời gian thì nhận. Chiến đang bận phần-\nỜ ...AI, Khoa đang sửa bot Discord, Linh đang viết test case nên chưa chốt người phụ trách. Nhưng việc lưu lại biên bản thì vẫn là một task bắt buộc và deadline-\nỜ ...ai là trước buổi demo ngày mai.",
+  "report": {
+    "overview": "Cuộc họp tập trung vào một hạng mục còn thiếu cho demo ngày mai: hệ thống cần lưu lại biên bản sau khi người dùng kết thúc cuộc họp và cho phép mở lại để xem. Task này bắt buộc hoàn thành trước buổi demo nhưng chưa có người phụ trách.",
+    "action_items": [
+      {
+        "task": "Hoàn thành chức năng lưu lại biên bản sau khi kết thúc cuộc họp và cho phép mở lại để xem",
+        "owner": null,
+        "deadline": "Trước buổi demo ngày mai",
+        "evidence": "hệ thống cần lưu lại biên bản và cho phép mở lại để xem. Phần này chắc chắn phải hoàn thành trước buổi demo"
+      }
+    ],
+    "sections": [
+      {
+        "title": "Hạng mục bắt buộc cho demo",
+        "points": [
+          {
+            "content": "Hệ thống cần lưu lại biên bản sau khi người dùng kết thúc cuộc họp và cho phép mở lại để xem.",
+            "evidence": "Sau khi người dùng kết thúc cuộc họp, hệ thống cần lưu lại biên bản và cho phép mở lại để xem."
+          },
+          {
+            "content": "Chức năng lưu lại biên bản là task bắt buộc và cần hoàn thành trước buổi demo ngày mai.",
+            "evidence": "việc lưu lại biên bản thì vẫn là một task bắt buộc và deadline- Ờ ...ai là trước buổi demo ngày mai."
+          }
+        ]
+      },
+      {
+        "title": "Phân công hiện tại",
+        "points": [
+          {
+            "content": "Chưa có người được phân công phụ trách task lưu lại biên bản.",
+            "evidence": "Hiện tại mình chưa phân công cho ai cả"
+          },
+          {
+            "content": "Chiến đang bận một phần công việc bị ngắt quãng trong transcript, Khoa đang sửa bot Discord, Linh đang viết test case.",
+            "evidence": "Chiến đang bận phần- Ờ ...AI, Khoa đang sửa bot Discord, Linh đang viết test case"
+          },
+          {
+            "content": "Người phụ trách task lưu biên bản chưa được chốt.",
+            "evidence": "nên chưa chốt người phụ trách"
+          }
+        ]
+      },
+      {
+        "title": "Needs Confirmation",
+        "points": [
+          {
+            "content": "Phần việc Chiến đang bận không rõ do transcript bị ngắt hoặc có nhiễu.",
+            "evidence": "Chiến đang bận phần- Ờ ...AI"
+          },
+          {
+            "content": "Chưa xác định ai sẽ nhận task lưu lại biên bản.",
+            "evidence": "lát nữa mọi người xem ai còn thời gian thì nhận"
+          }
+        ]
+      }
+    ]
+  }
+}

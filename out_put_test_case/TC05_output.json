@@ -1,0 +1,56 @@
+{
+  "test_case_id": "TC05",
+  "name": "Suggestion không phải quyết định",
+  "type": "Negative",
+  "risk": "High",
+  "goal": "Không biến brainstorm thành task/decision.",
+  "input_wavs": [
+    "TC_audio_TC05.wav"
+  ],
+  "execution_time_seconds": 16.2,
+  "status": "PASS",
+  "evaluation_reasons": [],
+  "error": null,
+  "transcript": "Mình nghĩ sau này sản phẩm có thể thêm dashboard để xem số cuộc họp theo tuần. Một ý tưởng khác là tự động gửi email sau cuộc họp, hay thậm chí có thể tích hợp Notion luôn.\nNhưng mấy cái đó hiện tại chỉ là ý tưởng thôi nhé, chưa làm trong hackathon này. Scope hiện tại vẫn chỉ là ghi âm, tạo transcript và xin meeting notes.\nKhông ai nhận làm dashboard, không ai nhận email và cũng chưa quyết định tích hợp Notion. Mình nhắc lại là các ý tưởng vừa rồi đưa vào backlog thôi.\nỪm. Chứ không phải action item của sprint hiện tại.",
+  "report": {
+    "overview": "Cuộc họp làm rõ rằng các ý tưởng như dashboard, email tự động và tích hợp Notion chỉ được đưa vào backlog; scope hiện tại của hackathon chỉ gồm ghi âm, tạo transcript và xin meeting notes.",
+    "action_items": [],
+    "sections": [
+      {
+        "title": "Scope hiện tại",
+        "points": [
+          {
+            "content": "Scope hiện tại của hackathon chỉ bao gồm ghi âm, tạo transcript và xin meeting notes.",
+            "evidence": "Scope hiện tại vẫn chỉ là ghi âm, tạo transcript và xin meeting notes."
+          }
+        ]
+      },
+      {
+        "title": "Ý tưởng backlog",
+        "points": [
+          {
+            "content": "Các ý tưởng được nêu gồm dashboard xem số cuộc họp theo tuần, tự động gửi email sau cuộc họp và tích hợp Notion.",
+            "evidence": "Mình nghĩ sau này sản phẩm có thể thêm dashboard để xem số cuộc họp theo tuần. Một ý tưởng khác là tự động gửi email sau cuộc họp, hay thậm chí có thể tích hợp Notion luôn."
+          },
+          {
+            "content": "Các ý tưởng này hiện chỉ là ý tưởng và được đưa vào backlog.",
+            "evidence": "Mình nhắc lại là các ý tưởng vừa rồi đưa vào backlog thôi."
+          }
+        ]
+      },
+      {
+        "title": "Không phải action item hiện tại",
+        "points": [
+          {
+            "content": "Không có ai nhận làm dashboard, email hoặc quyết định tích hợp Notion.",
+            "evidence": "Không ai nhận làm dashboard, không ai nhận email và cũng chưa quyết định tích hợp Notion."
+          },
+          {
+            "content": "Các ý tưởng này không phải action item của sprint hiện tại.",
+            "evidence": "Chứ không phải action item của sprint hiện tại."
+          }
+        ]
+      }
+    ]
+  }
+}

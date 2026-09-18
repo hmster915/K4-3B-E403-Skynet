@@ -30,7 +30,7 @@ Tiêu chí kiểm thử/đánh giá áp dụng sau khi bot Discord hoàn thiện
 
 | Lượt chạy | Ngày | Tổng case | Pass | Fail | % Pass | Ghi chú (nguyên nhân case fail) |
 |---|---|---|---|---|---|---|
-| Lượt 1 | | | | | | |
+| Lượt 1 (Audio Golden Set) | 18/09/2026 | 10 | 9 | 1 | 90.0% | TC06: Expected 0 action items for feedback/review meeting, got 1 |
 | Lượt 2 | | | | | | |
 
 - Ghi nhận đầy đủ, trung thực mọi case kể cả case chưa đạt — không chỉnh sửa/che giấu số liệu.

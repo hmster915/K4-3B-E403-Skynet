@@ -1,0 +1,77 @@
+{
+  "test_case_id": "TC04",
+  "name": "Thông tin mâu thuẫn",
+  "type": "Edge",
+  "risk": "Critical",
+  "goal": "Không tự giải quyết conflict.",
+  "input_wavs": [
+    "TC_audio_TC04.wav"
+  ],
+  "execution_time_seconds": 17.41,
+  "status": "PASS",
+  "evaluation_reasons": [],
+  "error": null,
+  "transcript": "Rồi, rồi, rồi. Giờ mình phân công phần deploy nhé. Nam nói lúc đầu là Khoa làm phần deploy vì Khoa đang giữ bot. Khoa bảo được, nhưng hình như hôm qua Chiến có nói là chi-\nỪm ...Chiến sẽ deploy core lên server luôn. Chiến thì nói: \"Mình nhớ là chỉ nhận phần API thôi, deploy có thể là Khoa.\" Sau đó Nam lại nói.\nThôi, để kiểm tra lại tin nhắn hôm qua đã, rồi mới xác nhận người phụ trách. Deadline deploy dự kiến là tối thứ sáu, nhưng hiện tại người làm vẫn chưa rõ.\nMọi người đừng chốt tên ai trong biên bản cho đến khi kiểm tra lại.",
+  "report": {
+    "overview": "Cuộc họp bàn về phân công phần deploy, nhưng người phụ trách deploy chưa được xác nhận do có thông tin không thống nhất. Nhóm thống nhất cần kiểm tra lại tin nhắn hôm qua trước khi chốt người phụ trách.",
+    "action_items": [
+      {
+        "task": "Kiểm tra lại tin nhắn hôm qua trước khi xác nhận người phụ trách deploy",
+        "owner": null,
+        "deadline": null,
+        "evidence": "Thôi, để kiểm tra lại tin nhắn hôm qua đã, rồi mới xác nhận người phụ trách."
+      },
+      {
+        "task": "Không chốt tên người phụ trách deploy trong biên bản cho đến khi kiểm tra lại",
+        "owner": null,
+        "deadline": null,
+        "evidence": "Mọi người đừng chốt tên ai trong biên bản cho đến khi kiểm tra lại."
+      }
+    ],
+    "sections": [
+      {
+        "title": "Phân công deploy chưa rõ",
+        "points": [
+          {
+            "content": "Nam ban đầu nói Khoa làm phần deploy vì Khoa đang giữ bot.",
+            "evidence": "Nam nói lúc đầu là Khoa làm phần deploy vì Khoa đang giữ bot."
+          },
+          {
+            "content": "Khoa đồng ý với việc làm deploy.",
+            "evidence": "Khoa bảo được"
+          },
+          {
+            "content": "Có thông tin rằng Chiến có thể sẽ deploy core lên server.",
+            "evidence": "hình như hôm qua Chiến có nói là chi- Ừm ...Chiến sẽ deploy core lên server luôn."
+          },
+          {
+            "content": "Chiến nói mình chỉ nhớ là nhận phần API, còn deploy có thể là Khoa.",
+            "evidence": "Chiến thì nói: \"Mình nhớ là chỉ nhận phần API thôi, deploy có thể là Khoa.\""
+          }
+        ]
+      },
+      {
+        "title": "Deadline deploy",
+        "points": [
+          {
+            "content": "Deadline deploy dự kiến là tối thứ sáu.",
+            "evidence": "Deadline deploy dự kiến là tối thứ sáu"
+          },
+          {
+            "content": "Người thực hiện deploy hiện vẫn chưa rõ.",
+            "evidence": "nhưng hiện tại người làm vẫn chưa rõ."
+          }
+        ]
+      },
+      {
+        "title": "Needs Confirmation",
+        "points": [
+          {
+            "content": "Cần xác nhận lại người phụ trách deploy sau khi kiểm tra tin nhắn hôm qua.",
+            "evidence": "rồi mới xác nhận người phụ trách"
+          }
+        ]
+      }
+    ]
+  }
+}

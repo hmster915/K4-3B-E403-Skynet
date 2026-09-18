@@ -1,0 +1,78 @@
+{
+  "test_case_id": "TC06",
+  "name": "Cuộc họp không có action item",
+  "type": "Boundary",
+  "risk": "Medium",
+  "goal": "Hệ thống không cố tạo task cho đủ form.",
+  "input_wavs": [
+    "TC_audio_TC06.wav"
+  ],
+  "execution_time_seconds": 16.57,
+  "status": "FAIL",
+  "evaluation_reasons": [
+    "Expected 0 action items for feedback/review meeting, got 1"
+  ],
+  "error": null,
+  "transcript": "Vũ Nhai, mình chỉ muốn mọi người cùng xem lại kết quả demo hôm qua thôi. Nhìn chung transcript đã đọc được khá tốt khi âm thanh rõ. Phần meeting note cũng dễ đọc hơn-\nừm ...phần phiên bản cũ. Một số bạn thấy phần action item đang hơi dài, còn phần overview thì vừa đủ. Mình cũng thấy UI Discord hiện khá ổn.\nHôm nay chưa cần phân công thêm việc gì và cũng không đặt deadline mới. Mục đích chỉ là chia sẻ, nhận xét và hiểu tình trạng hiện tại của sản phẩm. Sau buổi này, team sẽ-\nỪ ...có một cuộc họp khác để quyết định thay đổi cụ thể.",
+  "report": {
+    "overview": "Cuộc họp nhằm cùng xem lại kết quả demo hôm qua, chia sẻ nhận xét và hiểu tình trạng hiện tại của sản phẩm; chưa phân công thêm việc hoặc đặt deadline mới.",
+    "action_items": [
+      {
+        "task": "Tổ chức một cuộc họp khác để quyết định các thay đổi cụ thể.",
+        "owner": null,
+        "deadline": null,
+        "evidence": "Sau buổi này, team sẽ- Ừ ...có một cuộc họp khác để quyết định thay đổi cụ thể."
+      }
+    ],
+    "sections": [
+      {
+        "title": "Kết quả demo và chất lượng transcript",
+        "points": [
+          {
+            "content": "Transcript đọc được khá tốt khi âm thanh rõ.",
+            "evidence": "Nhìn chung transcript đã đọc được khá tốt khi âm thanh rõ."
+          }
+        ]
+      },
+      {
+        "title": "Nhận xét về meeting note và action item",
+        "points": [
+          {
+            "content": "Phần meeting note dễ đọc hơn phiên bản cũ.",
+            "evidence": "Phần meeting note cũng dễ đọc hơn- ừm ...phần phiên bản cũ."
+          },
+          {
+            "content": "Một số người thấy phần action item hơi dài.",
+            "evidence": "Một số bạn thấy phần action item đang hơi dài"
+          },
+          {
+            "content": "Phần overview được đánh giá là vừa đủ.",
+            "evidence": "còn phần overview thì vừa đủ."
+          }
+        ]
+      },
+      {
+        "title": "UI Discord",
+        "points": [
+          {
+            "content": "UI Discord hiện được đánh giá là khá ổn.",
+            "evidence": "Mình cũng thấy UI Discord hiện khá ổn."
+          }
+        ]
+      },
+      {
+        "title": "Phạm vi cuộc họp",
+        "points": [
+          {
+            "content": "Cuộc họp không nhằm phân công thêm việc hoặc đặt deadline mới.",
+            "evidence": "Hôm nay chưa cần phân công thêm việc gì và cũng không đặt deadline mới."
+          },
+          {
+            "content": "Mục đích là chia sẻ, nhận xét và hiểu tình trạng hiện tại của sản phẩm.",
+            "evidence": "Mục đích chỉ là chia sẻ, nhận xét và hiểu tình trạng hiện tại của sản phẩm."
+          }
+        ]
+      }
+    ]
+  }
+}

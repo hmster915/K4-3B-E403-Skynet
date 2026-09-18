@@ -1,0 +1,80 @@
+{
+  "test_case_id": "TC01",
+  "name": "Happy path đầy đủ",
+  "type": "Positive",
+  "risk": "Critical",
+  "goal": "Kiểm tra report hoàn chỉnh với quyết định + nhiều action item.",
+  "input_wavs": [
+    "TC_audio_TC01.wav"
+  ],
+  "execution_time_seconds": 24.94,
+  "status": "PASS",
+  "evaluation_reasons": [],
+  "error": null,
+  "transcript": "Hôm nay mình chốt lại phần backend nhé. Sau khi thử SQLite và PostgreSQL, thì team thống nhất dùng PostgreSQL cho bản demo, vì dữ liệu hiện-\nỪ ...tài đã đủ phức tạp rồi. Chiến sẽ phụ trách phần database và API, cố gắng hoàn thành trước thứ sáu để Khoa còn thời gian nối vào Discord. Khoan-\nỪ ...tiếp tục phần bot, cụ thể là lấy file ghi âm sau khi cuộc họp kết thúc rồi gửi sang Core xử lý. Linh chuẩn bị bộ test case để chiều thứ sáu cả nhóm trao-\nỪ ...lại thử. Phần giao diện dashboard thì hiện tại chưa cần làm, để sau hackathon tính tiếp. Vậy hôm nay mình chốt ba việc là: Chiến làm backend, Khoa-\nỪ ...nói Discord và Linh chuẩn bị test.",
+  "report": {
+    "overview": "Nhóm chốt phần backend cho bản demo: dùng PostgreSQL, phân công Chiến làm backend, Khoa xử lý phần Discord/bot, Linh chuẩn bị test case; phần dashboard được hoãn sau hackathon.",
+    "action_items": [
+      {
+        "task": "Phụ trách database và API cho backend",
+        "owner": "Chiến",
+        "deadline": "trước thứ sáu",
+        "evidence": "Chiến sẽ phụ trách phần database và API, cố gắng hoàn thành trước thứ sáu"
+      },
+      {
+        "task": "Nối vào Discord / xử lý phần bot lấy file ghi âm sau cuộc họp và gửi sang Core",
+        "owner": "Khoa",
+        "deadline": null,
+        "evidence": "để Khoa còn thời gian nối vào Discord. Khoan- Ừ ...tiếp tục phần bot, cụ thể là lấy file ghi âm sau khi cuộc họp kết thúc rồi gửi sang Core xử lý"
+      },
+      {
+        "task": "Chuẩn bị bộ test case để cả nhóm thử",
+        "owner": "Linh",
+        "deadline": "chiều thứ sáu",
+        "evidence": "Linh chuẩn bị bộ test case để chiều thứ sáu cả nhóm trao- Ừ ...lại thử"
+      }
+    ],
+    "sections": [
+      {
+        "title": "Backend",
+        "points": [
+          {
+            "content": "Nhóm thống nhất dùng PostgreSQL cho bản demo sau khi thử SQLite và PostgreSQL.",
+            "evidence": "Sau khi thử SQLite và PostgreSQL, thì team thống nhất dùng PostgreSQL cho bản demo"
+          },
+          {
+            "content": "Lý do được nêu là dữ liệu hiện tại đã đủ phức tạp.",
+            "evidence": "vì dữ liệu hiện- Ừ ...tài đã đủ phức tạp rồi"
+          }
+        ]
+      },
+      {
+        "title": "Bot và Core",
+        "points": [
+          {
+            "content": "Phần bot cần lấy file ghi âm sau khi cuộc họp kết thúc rồi gửi sang Core xử lý.",
+            "evidence": "tiếp tục phần bot, cụ thể là lấy file ghi âm sau khi cuộc họp kết thúc rồi gửi sang Core xử lý"
+          }
+        ]
+      },
+      {
+        "title": "Dashboard",
+        "points": [
+          {
+            "content": "Giao diện dashboard hiện chưa cần làm và để sau hackathon tính tiếp.",
+            "evidence": "Phần giao diện dashboard thì hiện tại chưa cần làm, để sau hackathon tính tiếp"
+          }
+        ]
+      },
+      {
+        "title": "Chốt phân công",
+        "points": [
+          {
+            "content": "Ba việc được chốt: Chiến làm backend, Khoa làm phần Discord, Linh chuẩn bị test.",
+            "evidence": "Vậy hôm nay mình chốt ba việc là: Chiến làm backend, Khoa- Ừ ...nói Discord và Linh chuẩn bị test"
+          }
+        ]
+      }
+    ]
+  }
+}
