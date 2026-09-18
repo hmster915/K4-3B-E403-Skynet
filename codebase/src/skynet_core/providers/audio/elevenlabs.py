@@ -1,20 +1,18 @@
 """
-__init__()               --> cấu hình ElevenLabs Realtime STT
-connect()                --> mở WebSocket realtime
-_build_websocket_url()   --> tạo URL + query params
-
-send_chunk()             --> gửi PCM audio chunk
-commit()                 --> chốt transcript segment
-events()                 --> nhận transcript events
-close()                  --> đóng WebSocket
-
-_parse_event()           --> response -> realtime event
-_map_words()             --> timestamps -> normalized words
+__init__()              --> cấu hình ElevenLabs
+transcribe_wav()        --> WAV -> Transcript
+_validate_wav()         --> kiểm tra PCM16 mono 16k
+_build_websocket_url()  --> tạo realtime URL
+_send_chunk()           --> gửi audio chunk
+_commit()               --> chốt audio segment
+_wait_for_transcript()  --> nhận committed transcript
+_parse_message()        --> đọc provider response
 """
 
 import base64
 import json
 import os
+import wave
 
 from collections.abc import (
     AsyncIterator,
@@ -22,7 +20,8 @@ from collections.abc import (
     Callable,
 )
 
-from typing import Any
+from pathlib import Path
+from typing import Protocol
 
 from urllib.parse import (
     urlencode,
@@ -32,47 +31,56 @@ from urllib.parse import (
 
 import websockets
 
-from skynet_core.models.transcript import (
-    RealtimeTranscriptEvent,
-    RealtimeTranscriptEventType,
-    RealtimeTranscriptWord,
-)
+from skynet_core.models.transcript import Transcript
+from skynet_core.providers.audio.buffer import TranscriptBuffer
 
 
-DEFAULT_ELEVENLABS_BASE_URL = (
-    "https://api.elevenlabs.io"
-)
+DEFAULT_BASE_URL = "https://api.elevenlabs.io"
+DEFAULT_MODEL_ID = "scribe_v2_realtime"
 
-DEFAULT_REALTIME_MODEL_ID = (
-    "scribe_v2_realtime"
-)
+SAMPLE_RATE = 16000
+SAMPLE_WIDTH = 2
+CHANNELS = 1
 
-DEFAULT_AUDIO_FORMAT = "pcm_16000"
+# gửi 0.5 giây audio mỗi lần
+CHUNK_FRAMES = 8000
 
-DEFAULT_SAMPLE_RATE = 16000
+# commit sau khoảng 10 giây
+CHUNKS_PER_COMMIT = 20
 
 
-ERROR_MESSAGE_TYPES = {
+ERROR_EVENTS = {
     "error",
     "auth_error",
     "quota_exceeded",
-    "commit_throttled",
     "transcriber_error",
-    "unaccepted_terms",
     "rate_limited",
     "input_error",
     "invalid_request",
-    "queue_overflow",
     "resource_exhausted",
-    "session_time_limit_exceeded",
-    "chunk_size_exceeded",
-    "insufficient_audio_activity",
 }
+
+
+class RealtimeSocket(Protocol):
+
+    async def send(
+        self,
+        message: str,
+    ) -> None:
+        ...
+
+    async def close(self) -> None:
+        ...
+
+    def __aiter__(
+        self,
+    ) -> AsyncIterator[str | bytes]:
+        ...
 
 
 WebSocketConnector = Callable[
     ...,
-    Awaitable[Any],
+    Awaitable[RealtimeSocket],
 ]
 
 
@@ -82,532 +90,172 @@ class RealtimeTranscriptionError(
     pass
 
 
-class ElevenLabsRealtimeSession:
-
-    # Preflight:
-    # Role=wrap realtime STT session
-    # Input=connected websocket
-    # Output=audio/transcript exchange
-    # Decision boundary=transport only
-    # Failure/Test=provider error
-
-    def __init__(
-        self,
-        websocket: Any,
-        sample_rate: int = DEFAULT_SAMPLE_RATE,
-    ) -> None:
-
-        self._websocket = websocket
-
-        self._sample_rate = sample_rate
-
-        self._closed = False
-
-    # Preflight:
-    # Role=send audio
-    # Input=PCM bytes
-    # Output=input_audio_chunk
-    # Decision boundary=no STT inference
-    # Failure/Test=empty/closed session
-
-    async def send_chunk(
-        self,
-        audio_chunk: bytes,
-    ) -> None:
-
-        if self._closed:
-
-            raise RealtimeTranscriptionError(
-                "Realtime STT session is closed"
-            )
-
-        if not audio_chunk:
-
-            raise ValueError(
-                "audio_chunk must not be empty"
-            )
-
-        payload = {
-            "message_type": "input_audio_chunk",
-
-            "audio_base_64": (
-                base64.b64encode(
-                    audio_chunk
-                ).decode("ascii")
-            ),
-
-            "commit": False,
-
-            "sample_rate": (
-                self._sample_rate
-            ),
-        }
-
-        await self._websocket.send(
-            json.dumps(payload)
-        )
-
-    # Preflight:
-    # Role=commit STT segment
-    # Input=none
-    # Output=commit message
-    # Decision boundary=segment boundary
-    # Failure/Test=closed session
-
-    async def commit(
-        self,
-    ) -> None:
-
-        if self._closed:
-
-            raise RealtimeTranscriptionError(
-                "Realtime STT session is closed"
-            )
-
-        payload = {
-            "message_type": "input_audio_chunk",
-            "audio_base_64": "",
-            "commit": True,
-            "sample_rate": self._sample_rate,
-        }
-
-        await self._websocket.send(
-            json.dumps(payload)
-        )
-
-    # Preflight:
-    # Role=receive STT events
-    # Input=WebSocket messages
-    # Output=normalized events
-    # Decision boundary=no meeting inference
-    # Failure/Test=invalid/error event
-
-    async def events(
-        self,
-    ) -> AsyncIterator[
-        RealtimeTranscriptEvent
-    ]:
-
-        if self._closed:
-
-            raise RealtimeTranscriptionError(
-                "Realtime STT session is closed"
-            )
-
-        async for raw_message in (
-            self._websocket
-        ):
-
-            event = self._parse_event(
-                raw_message
-            )
-
-            if event is not None:
-                yield event
-
-    # Preflight:
-    # Role=close connection
-    # Input=none
-    # Output=closed websocket
-    # Decision boundary=cleanup only
-    # Failure/Test=idempotent
-
-    async def close(
-        self,
-    ) -> None:
-
-        if self._closed:
-            return
-
-        self._closed = True
-
-        await self._websocket.close()
-
-    # Preflight:
-    # Role=normalize provider event
-    # Input=raw JSON
-    # Output=RealtimeTranscriptEvent
-    # Decision boundary=mapping only
-    # Failure/Test=invalid/error payload
-
-    @staticmethod
-    def _parse_event(
-        raw_message: str | bytes,
-    ) -> RealtimeTranscriptEvent | None:
-
-        try:
-
-            if isinstance(
-                raw_message,
-                bytes,
-            ):
-
-                raw_message = (
-                    raw_message.decode(
-                        "utf-8"
-                    )
-                )
-
-            payload = json.loads(
-                raw_message
-            )
-
-        except (
-            UnicodeDecodeError,
-            json.JSONDecodeError,
-        ) as exc:
-
-            raise RealtimeTranscriptionError(
-                "ElevenLabs returned "
-                "invalid realtime JSON"
-            ) from exc
-
-        if not isinstance(
-            payload,
-            dict,
-        ):
-
-            raise RealtimeTranscriptionError(
-                "Invalid realtime event shape"
-            )
-
-        message_type = str(
-            payload.get(
-                "message_type"
-            )
-            or ""
-        )
-
-        if message_type in (
-            ERROR_MESSAGE_TYPES
-        ):
-
-            detail = (
-                payload.get("error")
-                or payload.get("message")
-                or message_type
-            )
-
-            raise RealtimeTranscriptionError(
-                "ElevenLabs realtime "
-                f"STT error: {detail}"
-            )
-
-        event_type_map = {
-
-            "session_started":
-                RealtimeTranscriptEventType
-                .SESSION_STARTED,
-
-            "partial_transcript":
-                RealtimeTranscriptEventType
-                .PARTIAL,
-
-            "final_transcript":
-                RealtimeTranscriptEventType
-                .FINAL,
-
-            "final_transcript_with_timestamps":
-                RealtimeTranscriptEventType
-                .FINAL,
-
-            "committed_transcript":
-                RealtimeTranscriptEventType
-                .COMMITTED,
-
-            "committed_transcript_with_timestamps":
-                RealtimeTranscriptEventType
-                .COMMITTED_WITH_TIMESTAMPS,
-        }
-
-        event_type = event_type_map.get(
-            message_type
-        )
-
-        if event_type is None:
-            return None
-
-        text = payload.get("text")
-
-        return RealtimeTranscriptEvent(
-
-            event_type=event_type,
-
-            text=(
-                str(text).strip()
-                if text
-                else None
-            ),
-
-            session_id=(
-                str(
-                    payload[
-                        "session_id"
-                    ]
-                )
-                if payload.get(
-                    "session_id"
-                )
-                else None
-            ),
-
-            language_code=(
-                str(
-                    payload[
-                        "language_code"
-                    ]
-                )
-                if payload.get(
-                    "language_code"
-                )
-                else None
-            ),
-
-            words=(
-                ElevenLabsRealtimeSession
-                ._map_words(
-                    payload.get(
-                        "words"
-                    )
-                )
-            ),
-        )
-
-    # Preflight:
-    # Role=normalize timestamp words
-    # Input=provider word list
-    # Output=typed words
-    # Decision boundary=mapping only
-    # Failure/Test=skip invalid words
-
-    @staticmethod
-    def _map_words(
-        raw_words: Any,
-    ) -> list[
-        RealtimeTranscriptWord
-    ]:
-
-        if not isinstance(
-            raw_words,
-            list,
-        ):
-            return []
-
-        words: list[
-            RealtimeTranscriptWord
-        ] = []
-
-        for raw_word in raw_words:
-
-            if not isinstance(
-                raw_word,
-                dict,
-            ):
-                continue
-
-            text = str(
-                raw_word.get("text")
-                or ""
-            ).strip()
-
-            start = raw_word.get(
-                "start"
-            )
-
-            end = raw_word.get(
-                "end"
-            )
-
-            if (
-                not text
-                or not isinstance(
-                    start,
-                    (int, float),
-                )
-                or not isinstance(
-                    end,
-                    (int, float),
-                )
-            ):
-                continue
-
-            words.append(
-                RealtimeTranscriptWord(
-                    text=text,
-                    start_seconds=float(
-                        start
-                    ),
-                    end_seconds=float(
-                        end
-                    ),
-                )
-            )
-
-        return words
-
-
 class ElevenLabsAudioProvider:
 
-    # Preflight:
-    # Role=configure realtime STT
-    # Input=key/base URL/VAD config
-    # Output=provider
-    # Decision boundary=config only
-    # Failure/Test=missing key/URL
-
+    # Preflight: Role=configure ElevenLabs STT | Input=API config | Output=provider | Decision boundary=config only | Failure/Test=missing API key
     def __init__(
         self,
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-
-        connector:
-            WebSocketConnector
-            | None = None,
-
-        model_id: str = (
-            DEFAULT_REALTIME_MODEL_ID
-        ),
-
-        language_code:
-            str | None = "vie",
-
-        keyterms:
-            list[str] | None = None,
-
-        vad_silence_threshold_secs:
-            float = 1.5,
-
-        vad_threshold:
-            float = 0.4,
-
-        min_speech_duration_ms:
-            int = 100,
-
-        min_silence_duration_ms:
-            int = 100,
-
-        open_timeout_seconds:
-            float = 10.0,
+        connector: WebSocketConnector | None = None,
     ) -> None:
 
-        resolved_api_key = (
+        self._api_key = (
             api_key
-            or os.getenv(
-                "ELEVENLABS_API_KEY"
-            )
+            or os.getenv("ELEVENLABS_API_KEY")
             or ""
         ).strip()
 
-        if not resolved_api_key:
-
+        if not self._api_key:
             raise ValueError(
-                "ELEVENLABS_API_KEY "
-                "is required"
+                "ELEVENLABS_API_KEY is required"
             )
-
-        resolved_base_url = (
-            base_url
-            or os.getenv(
-                "ELEVENLABS_BASE_URL"
-            )
-            or DEFAULT_ELEVENLABS_BASE_URL
-        ).strip().rstrip("/")
-
-        if not resolved_base_url.startswith(
-            (
-                "http://",
-                "https://",
-                "ws://",
-                "wss://",
-            )
-        ):
-
-            raise ValueError(
-                "ELEVENLABS_BASE_URL "
-                "must be an http(s) "
-                "or ws(s) URL"
-            )
-
-        self._api_key = (
-            resolved_api_key
-        )
 
         self._base_url = (
-            resolved_base_url
-        )
+            base_url
+            or os.getenv("ELEVENLABS_BASE_URL")
+            or DEFAULT_BASE_URL
+        ).rstrip("/")
 
         self._connector = (
             connector
             or websockets.connect
         )
 
-        self._model_id = model_id
-
-        self._language_code = (
-            language_code
-        )
-
-        self._keyterms = list(
-            keyterms or []
-        )
-
-        self._vad_silence_threshold_secs = (
-            vad_silence_threshold_secs
-        )
-
-        self._vad_threshold = (
-            vad_threshold
-        )
-
-        self._min_speech_duration_ms = (
-            min_speech_duration_ms
-        )
-
-        self._min_silence_duration_ms = (
-            min_silence_duration_ms
-        )
-
-        self._open_timeout_seconds = (
-            open_timeout_seconds
-        )
-
-    # Preflight:
-    # Role=open ElevenLabs websocket
-    # Input=provider config
-    # Output=realtime session
-    # Decision boundary=connection only
-    # Failure/Test=network/auth failure
-
-    async def connect(
+    # Preflight: Role=transcribe WAV meeting | Input=PCM16 mono 16k WAV | Output=Transcript | Decision boundary=STT only, no LLM | Failure/Test=invalid WAV/network/provider failure
+    async def transcribe_wav(
         self,
-    ) -> ElevenLabsRealtimeSession:
+        wav_path: Path,
+    ) -> Transcript:
+
+        self._validate_wav(wav_path)
 
         websocket = await self._connector(
-
             self._build_websocket_url(),
-
             additional_headers={
-                "xi-api-key":
-                    self._api_key
+                "xi-api-key": self._api_key,
             },
-
-            open_timeout=(
-                self._open_timeout_seconds
-            ),
         )
 
-        return ElevenLabsRealtimeSession(
-            websocket
-        )
+        buffer = TranscriptBuffer()
 
-    # Preflight:
-    # Role=build WSS URL
-    # Input=provider config
-    # Output=realtime endpoint
-    # Decision boundary=encoding only
-    # Failure/Test=custom URL supported
+        try:
+            with wave.open(
+                str(wav_path),
+                "rb",
+            ) as audio:
 
+                chunks_since_commit = 0
+
+                while True:
+                    chunk = audio.readframes(
+                        CHUNK_FRAMES
+                    )
+
+                    if not chunk:
+                        break
+
+                    await self._send_chunk(
+                        websocket,
+                        chunk,
+                    )
+
+                    chunks_since_commit += 1
+
+                    if (
+                        chunks_since_commit
+                        >= CHUNKS_PER_COMMIT
+                    ):
+                        await self._commit(
+                            websocket
+                        )
+
+                        text = (
+                            await self
+                            ._wait_for_transcript(
+                                websocket
+                            )
+                        )
+
+                        buffer.add(text)
+
+                        chunks_since_commit = 0
+
+                if chunks_since_commit > 0:
+                    await self._commit(
+                        websocket
+                    )
+
+                    text = (
+                        await self
+                        ._wait_for_transcript(
+                            websocket
+                        )
+                    )
+
+                    buffer.add(text)
+
+        finally:
+            await websocket.close()
+
+        return buffer.build()
+
+    # Preflight: Role=validate WAV contract | Input=file path | Output=None | Decision boundary=format validation only | Failure/Test=missing/wrong format
+    @staticmethod
+    def _validate_wav(
+        wav_path: Path,
+    ) -> None:
+
+        if not wav_path.is_file():
+            raise FileNotFoundError(
+                f"WAV not found: {wav_path}"
+            )
+
+        try:
+            with wave.open(
+                str(wav_path),
+                "rb",
+            ) as audio:
+
+                if (
+                    audio.getnchannels()
+                    != CHANNELS
+                ):
+                    raise ValueError(
+                        "WAV must be mono"
+                    )
+
+                if (
+                    audio.getsampwidth()
+                    != SAMPLE_WIDTH
+                ):
+                    raise ValueError(
+                        "WAV must be PCM 16-bit"
+                    )
+
+                if (
+                    audio.getframerate()
+                    != SAMPLE_RATE
+                ):
+                    raise ValueError(
+                        "WAV must be 16000 Hz"
+                    )
+
+                if (
+                    audio.getcomptype()
+                    != "NONE"
+                ):
+                    raise ValueError(
+                        "WAV must be uncompressed PCM"
+                    )
+
+        except wave.Error as exc:
+            raise ValueError(
+                "Invalid WAV file"
+            ) from exc
+
+    # Preflight: Role=build ElevenLabs endpoint | Input=base URL | Output=WebSocket URL | Decision boundary=URL only | Failure/Test=http/ws base URL
     def _build_websocket_url(
         self,
     ) -> str:
@@ -616,109 +264,165 @@ class ElevenLabsAudioProvider:
             self._base_url
         )
 
-        ws_scheme = (
+        scheme = (
             "wss"
             if parsed.scheme
             in {"https", "wss"}
             else "ws"
         )
 
-        base_path = (
-            parsed.path.rstrip("/")
-        )
-
         path = (
-            f"{base_path}"
-            "/v1/speech-to-text/realtime"
+            parsed.path.rstrip("/")
+            + "/v1/speech-to-text/realtime"
         )
 
-        params: list[
-            tuple[str, str]
-        ] = [
+        query = urlencode(
+            {
+                "model_id":
+                    DEFAULT_MODEL_ID,
 
-            (
-                "model_id",
-                self._model_id,
-            ),
+                "audio_format":
+                    "pcm_16000",
 
-            (
-                "audio_format",
-                DEFAULT_AUDIO_FORMAT,
-            ),
+                "commit_strategy":
+                    "manual",
 
-            (
-                "commit_strategy",
-                "vad",
-            ),
+                "language_code":
+                    "vie",
 
-            (
-                "vad_silence_threshold_secs",
-                str(
-                    self
-                    ._vad_silence_threshold_secs
-                ),
-            ),
+                "include_timestamps":
+                    "false",
 
-            (
-                "vad_threshold",
-                str(
-                    self._vad_threshold
-                ),
-            ),
-
-            (
-                "min_speech_duration_ms",
-                str(
-                    self
-                    ._min_speech_duration_ms
-                ),
-            ),
-
-            (
-                "min_silence_duration_ms",
-                str(
-                    self
-                    ._min_silence_duration_ms
-                ),
-            ),
-
-            (
-                "include_timestamps",
-                "true",
-            ),
-
-            (
-                "no_verbatim",
-                "false",
-            ),
-        ]
-
-        if self._language_code:
-
-            params.append(
-                (
-                    "language_code",
-                    self._language_code,
-                )
-            )
-
-        for keyterm in (
-            self._keyterms
-        ):
-
-            params.append(
-                (
-                    "keyterms",
-                    keyterm,
-                )
-            )
+                "no_verbatim":
+                    "false",
+            }
+        )
 
         return urlunsplit(
             (
-                ws_scheme,
+                scheme,
                 parsed.netloc,
                 path,
-                urlencode(params),
+                query,
                 "",
             )
         )
+
+    # Preflight: Role=send PCM chunk | Input=audio bytes | Output=None | Decision boundary=transport only | Failure/Test=socket error
+    @staticmethod
+    async def _send_chunk(
+        websocket: RealtimeSocket,
+        chunk: bytes,
+    ) -> None:
+
+        payload = {
+            "message_type":
+                "input_audio_chunk",
+
+            "audio_base_64":
+                base64.b64encode(
+                    chunk
+                ).decode("ascii"),
+
+            "commit": False,
+
+            "sample_rate":
+                SAMPLE_RATE,
+        }
+
+        await websocket.send(
+            json.dumps(payload)
+        )
+
+    # Preflight: Role=commit current STT segment | Input=socket | Output=None | Decision boundary=STT segmentation only | Failure/Test=socket/provider error
+    @staticmethod
+    async def _commit(
+        websocket: RealtimeSocket,
+    ) -> None:
+
+        payload = {
+            "message_type":
+                "input_audio_chunk",
+
+            "audio_base_64": "",
+
+            "commit": True,
+
+            "sample_rate":
+                SAMPLE_RATE,
+        }
+
+        await websocket.send(
+            json.dumps(payload)
+        )
+
+    # Preflight: Role=wait for committed STT | Input=provider events | Output=text | Decision boundary=ignore partial events | Failure/Test=provider/closed connection
+    async def _wait_for_transcript(
+        self,
+        websocket: RealtimeSocket,
+    ) -> str:
+
+        async for raw_message in websocket:
+
+            message_type, text = (
+                self._parse_message(
+                    raw_message
+                )
+            )
+
+            if message_type in ERROR_EVENTS:
+                raise RealtimeTranscriptionError(
+                    text
+                    or message_type
+                )
+
+            if (
+                message_type
+                == "committed_transcript"
+            ):
+                return text
+
+        raise RealtimeTranscriptionError(
+            "ElevenLabs connection closed "
+            "before transcript was returned"
+        )
+
+    # Preflight: Role=parse provider response | Input=raw JSON | Output=message type/text | Decision boundary=parse only | Failure/Test=invalid JSON
+    @staticmethod
+    def _parse_message(
+        raw_message: str | bytes,
+    ) -> tuple[str, str]:
+
+        if isinstance(
+            raw_message,
+            bytes,
+        ):
+            raw_message = (
+                raw_message.decode(
+                    "utf-8"
+                )
+            )
+
+        try:
+            payload = json.loads(
+                raw_message
+            )
+
+        except json.JSONDecodeError as exc:
+            raise RealtimeTranscriptionError(
+                "Invalid ElevenLabs response"
+            ) from exc
+
+        message_type = str(
+            payload.get("message_type")
+            or ""
+        )
+
+        text = str(
+            payload.get("text")
+            or payload.get("message")
+            or payload.get("error")
+            or ""
+        ).strip()
+
+        return message_type, text
