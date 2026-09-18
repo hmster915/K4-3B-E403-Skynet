@@ -26,7 +26,7 @@
     "open_questions": [
       "string"
     ],
-    "needs_confirmation": [
+    "needs_confirmation": [git
       "string"
     ]
   },
