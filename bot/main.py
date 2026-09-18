@@ -21,9 +21,10 @@ class KuteBot(commands.Bot):
     async def setup_hook(self):
         extensions = [
             "bot.commands.general",
-            "bot.commands.moderation",
             "bot.commands.demo",
             "bot.commands.recording",
+            "bot.commands.documents",
+            "bot.commands.assistant",
         ]
 
         for extension in extensions:

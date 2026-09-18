@@ -1,4 +1,5 @@
 import asyncio
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -7,36 +8,59 @@ import discord
 from discord import app_commands
 from discord.ext import commands, voice_recv
 
+from skynet_core import MeetingCore
+
 from bot.audio.recording_sink import (
     PerUserWaveSink,
 )
+
+from bot.config import validate_meeting_core_config
 
 from bot.services.recording_manager import (
     RecordingSession,
     recording_manager,
 )
 
-from bot.services.transcription_service import (
-    TranscriptionService,
-)
-
-from bot.services.summarization_service import (
-    SummarizationService,
-)
-
 from bot.services.meeting_processing_service import (
     MeetingProcessingService,
 )
+from bot.services.meeting_memory_service import meeting_memory_service
 
 
 class MeetingSummaryView(discord.ui.View):
-    """Interactive tabs for the generated meeting report."""
+    """Render MeetingCoreResult fields as interactive Discord tabs."""
 
     def __init__(self, result):
         super().__init__(timeout=900)
         self.result = result
         self.active_tab = "summary"
         self._update_button_styles()
+
+    @staticmethod
+    def _truncate(value: str, limit: int) -> str:
+        if len(value) <= limit:
+            return value
+        return value[: limit - 1].rstrip() + "…"
+
+    @classmethod
+    def _readable_lines(
+        cls,
+        value: str,
+        limit: int,
+        empty_text: str,
+    ) -> str:
+        """Render paragraphs as one concise bullet per line."""
+        parts = [
+            part.strip()
+            for part in re.split(r"(?:\r?\n)+|(?<=[.!?])\s+", value.strip())
+            if part.strip()
+        ]
+        if not parts:
+            return empty_text
+        return cls._truncate(
+            "\n".join(f"• {part}" for part in parts),
+            limit,
+        )
 
     def _update_button_styles(self):
         for button in self.children:
@@ -52,52 +76,46 @@ class MeetingSummaryView(discord.ui.View):
         self.active_tab = tab_name
         self._update_button_styles()
 
-    @staticmethod
-    def _bullet_list(items: list[str], empty_text: str = "Không ghi nhận"):
-        if not items:
-            return empty_text
-
-        return "\n".join(f"• {item}" for item in items)
-
     def _summary_embed(self):
-        summary = self.result.summary
-        transcript = self.result.transcript
-
+        report = self.result.report
         embed = discord.Embed(
             title="📋 Tóm tắt cuộc họp",
-            description=summary.summary or "Không có nội dung tóm tắt.",
+            description=self._readable_lines(
+                report.overview,
+                4096,
+                "Không có nội dung tóm tắt.",
+            ),
             color=discord.Color.blurple(),
         )
 
         embed.add_field(
-            name="🧩 Chủ đề chính",
-            value=self._bullet_list(summary.topics),
-            inline=False,
-        )
-        embed.add_field(
-            name="🎯 Quyết định",
-            value=self._bullet_list(summary.decisions),
-            inline=False,
-        )
-        embed.add_field(
             name="✅ Action Items",
-            value=self._action_items_text(summary.action_items),
+            value=self._action_items_text(report.action_items),
             inline=False,
         )
-        embed.add_field(
-            name="💬 Transcript",
-            value=(
-                f"**{len(transcript)}** đoạn hội thoại | "
-                f"**{self._speaker_count()}** speaker"
-            ),
-            inline=False,
-        )
+
+        for section in report.sections[:20]:
+            points = [
+                (
+                    f"**{index}. Nội dung:** {point.content}\n"
+                    f"**Bằng chứng:** {point.evidence}"
+                )
+                for index, point in enumerate(section.points, start=1)
+            ]
+            embed.add_field(
+                name=self._truncate(f"🧩 {section.title}", 256),
+                value=self._truncate(
+                    "\n\n".join(points) or "Không ghi nhận",
+                    1024,
+                ),
+                inline=False,
+            )
+
         embed.set_footer(text="Skynet • AI Meeting Assistant")
         return embed
 
     def _notes_embed(self, user_id: int):
         notes = self.result.personal_notes.get(user_id, [])
-
         embed = discord.Embed(
             title="📝 Ghi chú cuộc họp",
             description="Ghi chú cá nhân của bạn trong cuộc họp này.",
@@ -105,56 +123,47 @@ class MeetingSummaryView(discord.ui.View):
         )
         embed.add_field(
             name="📌 Ghi chú cá nhân",
-            value=self._bullet_list(notes),
+            value=self._truncate(
+                "\n".join(
+                    f"**{index}.** {note}"
+                    for index, note in enumerate(notes, start=1)
+                ) or "Không có ghi chú cá nhân.",
+                1024,
+            ),
             inline=False,
         )
-        embed.set_footer(text="Skynet • AI Meeting Assistant")
+        embed.set_footer(text="Chỉ bạn có thể xem nội dung này")
         return embed
 
     def _transcript_embed(self):
-        transcript = self.result.transcript
-        lines = [
-            f"**{segment.speaker_name}:** {segment.text}"
-            for segment in transcript
-        ]
-
-        transcript_text = "\n\n".join(lines) or "Không có nội dung transcript."
-        if len(transcript_text) > 3900:
-            transcript_text = (
-                transcript_text[:3900]
-                + "\n\n… Transcript quá dài, chỉ hiển thị phần đầu."
-            )
-
+        transcript_text = self.result.transcript.text
         embed = discord.Embed(
             title="🗒️ Bản chép lời",
-            description=transcript_text,
+            description=self._readable_lines(
+                transcript_text,
+                3900,
+                "Không có nội dung transcript.",
+            ),
             color=discord.Color.orange(),
-        )
-        embed.set_footer(
-            text=(
-                f"{len(transcript)} đoạn hội thoại • "
-                f"{self._speaker_count()} speaker"
-            )
         )
         return embed
 
-    def _speaker_count(self):
-        return len({segment.speaker_name for segment in self.result.transcript})
-
-    @staticmethod
-    def _action_items_text(action_items):
+    @classmethod
+    def _action_items_text(cls, action_items):
         if not action_items:
             return "Không ghi nhận"
 
         lines = []
-        for item in action_items:
+        for index, item in enumerate(action_items, start=1):
             owner = item.owner or "Chưa xác định"
-            line = f"• **{owner}** — {item.task}"
-            if item.deadline:
-                line += f"\n  ↳ Deadline: {item.deadline}"
-            lines.append(line)
-
-        return "\n".join(lines)
+            deadline = item.deadline or "Chưa xác định"
+            lines.append(
+                f"**{index}. Công việc:** {item.task}\n"
+                f"**Người phụ trách:** {owner}\n"
+                f"**Hạn chót:** {deadline}\n"
+                f"**Bằng chứng:** {item.evidence}"
+            )
+        return cls._truncate("\n\n".join(lines), 1024)
 
     @discord.ui.button(
         label="Tóm tắt",
@@ -199,27 +208,10 @@ class RecordingCommands(commands.Cog):
         bot: commands.Bot
     ):
         self.bot = bot
-
-        transcription_service = (
-            TranscriptionService(
-                mode="mock"
-            )
-        )
-
-        summarization_service = (
-            SummarizationService(
-                mode="mock"
-            )
-        )
-
-        self.meeting_processor = (
-            MeetingProcessingService(
-                transcription_service=
-                    transcription_service,
-
-                summarization_service=
-                    summarization_service,
-            )
+        validate_meeting_core_config()
+        self.meeting_core = MeetingCore.from_env()
+        self.meeting_processor = MeetingProcessingService(
+            self.meeting_core
         )
 
     # =====================================================
@@ -680,10 +672,10 @@ class RecordingCommands(commands.Cog):
         """
         Xử lý recording sau khi kết thúc:
 
-        Audio
-            -> TranscriptionService
-            -> SummarizationService
-            -> Discord Meeting Summary
+        WAV files
+            -> MeetingCore.process_wavs()
+            -> MeetingCoreResult
+            -> Discord meeting report
         """
 
         try:
@@ -739,138 +731,6 @@ class RecordingCommands(commands.Cog):
     # Discord Meeting Summary UI
     # =====================================================
 
-    async def _legacy_send_meeting_summary(
-        self,
-        text_channel,
-        result
-    ):
-        summary = result.summary
-        transcript = result.transcript
-
-        embed = discord.Embed(
-            title="📋 Biên bản cuộc họp",
-            description=(
-                summary.summary
-                or "Không có nội dung tóm tắt."
-            )
-        )
-
-        # =========================
-        # Topics
-        # =========================
-
-        topics_text = "\n".join(
-            f"• {topic}"
-            for topic in summary.topics
-        )
-
-        embed.add_field(
-            name="🧩 Chủ đề chính",
-            value=(
-                topics_text
-                or "Không ghi nhận"
-            ),
-            inline=False
-        )
-
-        # =========================
-        # Decisions
-        # =========================
-
-        decisions_text = "\n".join(
-            f"• {decision}"
-            for decision in summary.decisions
-        )
-
-        embed.add_field(
-            name="🎯 Quyết định",
-            value=(
-                decisions_text
-                or "Không ghi nhận"
-            ),
-            inline=False
-        )
-
-        # =========================
-        # Action items
-        # =========================
-
-        actions = []
-
-        for item in summary.action_items:
-
-            owner = (
-                item.owner
-                or "Chưa xác định"
-            )
-
-            action_text = (
-                f"• **{owner}** — {item.task}"
-            )
-
-            if item.deadline:
-                action_text += (
-                    f"\n  ↳ Deadline: {item.deadline}"
-                )
-
-            actions.append(
-                action_text
-            )
-
-        embed.add_field(
-            name="✅ Action Items",
-            value=(
-                "\n".join(actions)
-                or "Không ghi nhận"
-            ),
-            inline=False
-        )
-
-        # =========================
-        # Open questions
-        # =========================
-
-        questions_text = "\n".join(
-            f"• {question}"
-            for question
-            in summary.open_questions
-        )
-
-        embed.add_field(
-            name="❓ Open Questions",
-            value=(
-                questions_text
-                or "Không ghi nhận"
-            ),
-            inline=False
-        )
-
-        # =========================
-        # Transcript info
-        # =========================
-
-        speakers = {
-            segment.speaker_name
-            for segment in transcript
-        }
-
-        embed.add_field(
-            name="💬 Transcript",
-            value=(
-                f"**{len(transcript)}** đoạn hội thoại\n"
-                f"**{len(speakers)}** speaker"
-            ),
-            inline=True
-        )
-
-        embed.set_footer(
-            text="Skynet • AI Meeting Assistant"
-        )
-
-        await text_channel.send(
-            embed=embed
-        )
-
     async def send_meeting_summary(
         self,
         text_channel,
@@ -878,10 +738,20 @@ class RecordingCommands(commands.Cog):
     ):
         view = MeetingSummaryView(result)
 
-        await text_channel.send(
+        summary_message = await text_channel.send(
             embed=view._summary_embed(),
             view=view,
         )
+
+        try:
+            await meeting_memory_service.save(
+                guild_id=text_channel.guild.id,
+                channel_id=text_channel.id,
+                message_id=summary_message.id,
+                result=result,
+            )
+        except Exception as exc:
+            print("[MEETING MEMORY ERROR]", repr(exc))
 
     @commands.Cog.listener()
     async def on_voice_state_update(
