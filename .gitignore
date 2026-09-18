@@ -4,6 +4,7 @@ __pycache__/
 node_modules/
 data/
 recordings/
+CLAUDE.md
 
 # IDE
 .idea/
