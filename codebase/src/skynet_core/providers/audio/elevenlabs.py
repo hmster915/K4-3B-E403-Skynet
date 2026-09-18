@@ -82,7 +82,7 @@ class RealtimeTranscriptionError(
     pass
 
 
-class ElevenLabsAudioProvider:
+class ElevenLabsRealtimeSession:
 
     # Preflight:
     # Role=wrap realtime STT session
@@ -446,7 +446,7 @@ class ElevenLabsAudioProvider:
         return words
 
 
-class ElevenLabsRealtimeAudioProvider:
+class ElevenLabsAudioProvider:
 
     # Preflight:
     # Role=configure realtime STT
