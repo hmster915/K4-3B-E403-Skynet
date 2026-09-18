@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -22,6 +22,7 @@ class RecordingSession:
     sink: PerUserWaveSink
 
     ending: bool = False
+    personal_notes: dict[int, list[str]] = field(default_factory=dict)
 
 
 class RecordingManager:

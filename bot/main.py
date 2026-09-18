@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from bot.config import DISCORD_TOKEN, DISCORD_GUILD_ID
+from bot.config import DISCORD_TOKEN
 
 
 intents = discord.Intents.default()
@@ -15,6 +15,8 @@ class KuteBot(commands.Bot):
             command_prefix="!",
             intents=intents
         )
+
+        self._commands_synced = False
 
     async def setup_hook(self):
         extensions = [
@@ -32,27 +34,30 @@ class KuteBot(commands.Bot):
                 print(f"[ERROR] Failed to load {extension}: {e}")
                 raise
 
-        guild = discord.Object(id=DISCORD_GUILD_ID)
-
-        # Copy các global command vào server test
-        self.tree.copy_global_to(guild=guild)
-
-        synced = await self.tree.sync(guild=guild)
-
-        print(
-            f"[SYNC] Đã đồng bộ {len(synced)} commands "
-            f"vào guild {DISCORD_GUILD_ID}"
-        )
-
-        for command in synced:
-            print(f"   /{command.name}")
-
-
 bot = KuteBot()
 
 
 @bot.event
 async def on_ready():
+    if not bot._commands_synced:
+        total = 0
+
+        for guild in bot.guilds:
+            bot.tree.copy_global_to(guild=guild)
+            synced = await bot.tree.sync(guild=guild)
+            total += len(synced)
+
+            print(
+                f"[SYNC] Synced {len(synced)} commands "
+                f"to guild {guild.name} ({guild.id})"
+            )
+
+        bot._commands_synced = True
+        print(
+            f"[SYNC] Synced commands to {len(bot.guilds)} guild(s) "
+            f"({total} total command entries)"
+        )
+
     print(
         f"[READY] Bot online: {bot.user} "
         f"(ID: {bot.user.id})"
