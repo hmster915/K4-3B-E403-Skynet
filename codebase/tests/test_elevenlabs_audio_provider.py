@@ -8,9 +8,11 @@ import asyncio
 import base64
 import json
 import struct
+import tempfile
 import wave
 
 from array import array
+from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -111,10 +113,21 @@ def _payloads(
     ]
 
 
+@pytest.fixture
+def audio_tmp_path() -> Iterator[Path]:
+    with tempfile.TemporaryDirectory(
+        prefix="skynet-audio-tests-",
+    ) as directory:
+        yield Path(directory)
+
+
 def test_transcribe_discord_wav_normalizes_and_chunks(
-    tmp_path: Path,
+    audio_tmp_path: Path,
 ) -> None:
-    wav_path = tmp_path / "discord_voice.wav"
+    wav_path = (
+        audio_tmp_path
+        / "discord_voice.wav"
+    )
 
     # 10.25 seconds creates 20 full 0.5-second chunks and
     # one final half chunk after conversion to mono 16 kHz.
@@ -237,9 +250,12 @@ def test_transcribe_discord_wav_normalizes_and_chunks(
 
 
 def test_transcribe_mono_16k_keeps_pcm_bytes(
-    tmp_path: Path,
+    audio_tmp_path: Path,
 ) -> None:
-    wav_path = tmp_path / "ready_for_stt.wav"
+    wav_path = (
+        audio_tmp_path
+        / "ready_for_stt.wav"
+    )
     source_pcm = _write_pcm16_wav(
         wav_path,
         channels=1,
@@ -277,9 +293,12 @@ def test_transcribe_mono_16k_keeps_pcm_bytes(
 
 
 def test_transcribe_wav_rejects_raw_discord_opus(
-    tmp_path: Path,
+    audio_tmp_path: Path,
 ) -> None:
-    opus_path = tmp_path / "discord_packet.opus"
+    opus_path = (
+        audio_tmp_path
+        / "discord_packet.opus"
+    )
     opus_path.write_bytes(b"not-a-wav")
 
     socket = _FakeRealtimeSocket([])
@@ -303,9 +322,12 @@ def test_transcribe_wav_rejects_raw_discord_opus(
 
 
 def test_transcribe_wav_closes_socket_on_provider_error(
-    tmp_path: Path,
+    audio_tmp_path: Path,
 ) -> None:
-    wav_path = tmp_path / "provider_error.wav"
+    wav_path = (
+        audio_tmp_path
+        / "provider_error.wav"
+    )
     _write_pcm16_wav(
         wav_path,
         channels=1,
