@@ -1,3 +1,25 @@
-from .base import AudioTranscriber
+"""
+RealtimeAudioProvider  --> contract realtime provider
+RealtimeAudioSession   --> contract realtime session
+ElevenLabsAudioProvider --> ElevenLabs realtime implementation
+"""
 
-__all__ = ["AudioTranscriber"]
+from .base import (
+    RealtimeAudioProvider,
+    RealtimeAudioSession,
+)
+
+from .elevenlabs import (
+    ElevenLabsAudioProvider,
+    ElevenLabsRealtimeSession,
+    RealtimeTranscriptionError,
+)
+
+
+__all__ = [
+    "RealtimeAudioProvider",
+    "RealtimeAudioSession",
+    "ElevenLabsAudioProvider",
+    "ElevenLabsRealtimeSession",
+    "RealtimeTranscriptionError",
+]
