@@ -27,9 +27,9 @@ dist/
 
 # JavaScript dependencies
 node_modules/
-
-# Local project data
-/data/
+data/
+recordings/
+CLAUDE.md
 
 # IDE
 .idea/
