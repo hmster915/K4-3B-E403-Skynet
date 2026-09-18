@@ -68,7 +68,10 @@ class GeneralCommands(commands.Cog):
                 "trên server và tối đa 300 tin nhắn gần nhất trong channel "
                 "hiện tại.\n"
                 "Ví dụ: `@Skynet cuộc họp gần nhất giao việc gì cho Khoa?`\n"
+                "Ví dụ: `@Skynet cuộc họp gần nhất có bao nhiêu người tham dự?`\n"
                 "Có thể đính kèm file `.txt`, `.md` hoặc `.docx`.\n"
+                "Bot cũng có thể tìm vị trí và link của file ZIP, ảnh, audio, "
+                "video, sticker và media khác đã gửi trong server.\n"
                 "Nếu server không có bằng chứng, bot sẽ từ chối trả lời thay "
                 "vì dùng kiến thức bên ngoài."
             ),

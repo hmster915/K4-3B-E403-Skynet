@@ -79,6 +79,10 @@ class MentionAssistant(commands.Cog):
             "bản chép lời",
             "action item",
             "decision",
+            "recording completed",
+            "speakers",
+            "unique attendees",
+            "người tham dự",
         )
         if not any(marker in searchable for marker in markers):
             return ""
@@ -89,6 +93,55 @@ class MentionAssistant(commands.Cog):
         )
         return "\n".join(part for part in parts if part).strip()
 
+    @staticmethod
+    def _message_resource_text(message: discord.Message) -> str:
+        resources: list[str] = []
+        message_url = getattr(message, "jump_url", "")
+
+        for attachment in message.attachments:
+            content_type = attachment.content_type or "unknown"
+            resources.append(
+                "Attachment: "
+                f"name={attachment.filename}; "
+                f"type={content_type}; "
+                f"size={attachment.size} bytes; "
+                f"download_url={attachment.url}; "
+                f"message_url={message_url}"
+            )
+
+        for sticker in getattr(message, "stickers", []):
+            resources.append(
+                "Sticker: "
+                f"name={sticker.name}; "
+                f"url={sticker.url}; "
+                f"message_url={message_url}"
+            )
+
+        for embed in message.embeds:
+            urls: list[str] = []
+            for candidate in (
+                embed.url,
+                getattr(embed.image, "url", None),
+                getattr(embed.thumbnail, "url", None),
+                getattr(embed.video, "url", None),
+            ):
+                if candidate and candidate not in urls:
+                    urls.append(candidate)
+            if not urls:
+                continue
+            resources.append(
+                "Embedded media/link: "
+                f"title={embed.title or 'Untitled'}; "
+                f"urls={', '.join(urls)}; "
+                f"message_url={message_url}"
+            )
+
+        if not resources:
+            return ""
+        return "Shared resources:\n" + "\n".join(
+            f"- {resource}" for resource in resources
+        )
+
     async def _document_context(
         self,
         attachments: list[discord.Attachment],
@@ -97,30 +150,36 @@ class MentionAssistant(commands.Cog):
         labels: list[str] = []
         remaining = MAX_FILE_CHARACTERS
 
-        supported_attachments = [
-            attachment
-            for attachment in attachments
-            if Path(attachment.filename).suffix.lower()
-            in SUPPORTED_DOCUMENT_EXTENSIONS
-        ]
-        for attachment in supported_attachments[:MAX_RECENT_FILES]:
+        for attachment in attachments[:MAX_RECENT_FILES]:
             extension = Path(attachment.filename).suffix.lower()
-            if extension not in SUPPORTED_DOCUMENT_EXTENSIONS:
-                continue
-            if attachment.size > MAX_ATTACHMENT_BYTES or remaining <= 0:
-                continue
-            try:
-                content = await attachment.read()
-                document = DocumentSummarizationService.extract(
-                    attachment.filename,
-                    content,
-                )
-            except (DocumentExtractionError, discord.HTTPException):
+            if remaining <= 0:
                 continue
 
             label = f"File: {attachment.filename}"
-            text = self._truncate(document.text, remaining)
-            sections.append(f"[{label}]\n{text}")
+            metadata = (
+                f"[{label}]\n"
+                f"Filename: {attachment.filename}\n"
+                f"Content type: {attachment.content_type or 'unknown'}\n"
+                f"Size: {attachment.size} bytes\n"
+                f"Download URL: {attachment.url}"
+            )
+            text = metadata
+            if (
+                extension in SUPPORTED_DOCUMENT_EXTENSIONS
+                and attachment.size <= MAX_ATTACHMENT_BYTES
+            ):
+                try:
+                    content = await attachment.read()
+                    document = DocumentSummarizationService.extract(
+                        attachment.filename,
+                        content,
+                    )
+                    text += f"\nExtracted content:\n{document.text}"
+                except (DocumentExtractionError, discord.HTTPException):
+                    pass
+
+            text = self._truncate(text, remaining)
+            sections.append(text)
             labels.append(label)
             remaining -= len(text)
         return sections, labels
@@ -164,11 +223,25 @@ class MentionAssistant(commands.Cog):
             channel = guild.get_channel(meeting.channel_id)
             channel_name = getattr(channel, "name", str(meeting.channel_id))
             label = f"Meeting {index} in #{channel_name}"
+            attendance = meeting.attendance
+            participant_names = [
+                participant.get("name", "Không rõ")
+                for participant in attendance.get("participants", [])
+            ]
+            attendance_lines = (
+                "Attendance:\n"
+                f"- Unique attendees: {attendance.get('unique_count', 'unknown')}\n"
+                f"- Present at start: {attendance.get('initial_count', 'unknown')}\n"
+                f"- Peak simultaneous: {attendance.get('peak_count', 'unknown')}\n"
+                f"- Participants: {', '.join(participant_names) or 'unknown'}\n"
+                f"- Events: {attendance.get('events', [])}\n"
+            )
             block = (
                 f"[{label}]\n"
                 f"Created (UTC+07:00): "
                 f"{self._local_timestamp(meeting.created_at)}\n"
-                f"Overview: {report.get('overview', '')}\n"
+                + attendance_lines
+                + f"Overview: {report.get('overview', '')}\n"
                 "Action items:\n"
                 + ("\n".join(action_lines) or "- Không ghi nhận")
                 + "\nTopics:\n"
@@ -217,6 +290,11 @@ class MentionAssistant(commands.Cog):
                     content_parts.append(
                         historical_message.clean_content.strip()
                     )
+                resource_text = self._message_resource_text(
+                    historical_message
+                )
+                if resource_text:
+                    content_parts.append(resource_text)
                 content = "\n".join(
                     part for part in content_parts if part
                 ).strip()
@@ -301,21 +379,29 @@ class MentionAssistant(commands.Cog):
                     limit=MAX_HISTORY_MESSAGES,
                     oldest_first=False,
                 ):
-                    if historical_message.author.id != self.bot.user.id:
-                        continue
-                    embed_parts = [
-                        self._meeting_embed_text(embed)
-                        for embed in historical_message.embeds
-                    ]
+                    content_parts: list[str] = []
+                    if historical_message.author.id == self.bot.user.id:
+                        content_parts.extend(
+                            self._meeting_embed_text(embed)
+                            for embed in historical_message.embeds
+                        )
+                    resource_text = self._message_resource_text(
+                        historical_message
+                    )
+                    if resource_text:
+                        content_parts.append(resource_text)
                     content = "\n".join(
-                        part for part in embed_parts if part
+                        part for part in content_parts if part
                     ).strip()
                     if not content:
                         continue
                     timestamp = self._local_timestamp(
                         historical_message.created_at
                     )
-                    line = f"{timestamp} | Skynet: {content}"
+                    line = (
+                        f"{timestamp} | "
+                        f"{historical_message.author.display_name}: {content}"
+                    )
                     if len(line) > remaining:
                         line = self._truncate(line, remaining)
                     channel_lines.append(line)
@@ -327,7 +413,7 @@ class MentionAssistant(commands.Cog):
 
             if channel_lines:
                 channel_lines.reverse()
-                label = f"Server meeting history: #{channel.name}"
+                label = f"Server meeting and files: #{channel.name}"
                 sections.append(f"[{label}]\n" + "\n\n".join(channel_lines))
                 labels.append(label)
 

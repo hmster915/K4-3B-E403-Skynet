@@ -26,6 +26,13 @@ Rules:
 - Set supported=false if the context does not directly support the answer.
 - Keep facts from different meetings, files, or messages separate.
 - Only use source labels from the supplied allowed_source_labels list.
+- When asked to find a file or media item, preserve its exact filename and
+  return its exact message_url or download_url from the context. Never create
+  or modify a URL.
+- For attendance questions, use unique_count for "how many attended",
+  initial_count for "at the start", peak_count for "maximum at once", and the
+  attendance events for a specific time. A speaker count is not an attendee
+  count; for old meetings with only Speakers data, state that limitation.
 - Never claim access to private notes, other channels, or other servers.
 - Answer in the same language as the user's question.
 - Format the answer as short headings and one point per line, not one paragraph.
